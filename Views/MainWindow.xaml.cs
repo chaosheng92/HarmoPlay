@@ -1208,7 +1208,24 @@ public partial class MainWindow : Window
         _hotkeys.Dispose();
         PersistOverlayBounds();
         LibraryStore.Save(_lib);
+
+        // 悬浮窗是独立顶层窗口：必须显式关掉，否则主窗口关闭后它会继续留在屏幕上（进程也不退出）
+        try
+        {
+            _overlay?.Close();
+        }
+        catch
+        {
+            // 忽略
+        }
+        _overlay = null;
+        Program.Trace("退出程序：已关闭主窗口与悬浮窗，准备结束进程");
+
         base.OnClosing(e);
+
+        // 明确结束进程，避免残留（托盘图标 / 悬浮窗 / 播放线程）
+        Dispatcher.InvokeAsync(() => System.Windows.Application.Current?.Shutdown(),
+            System.Windows.Threading.DispatcherPriority.Background);
     }
 
     // ================================================================ 后台托盘

@@ -106,7 +106,8 @@ public sealed class PlaybackEngine : IDisposable
     /// 否则倒计时的那几秒会被算成曲谱时间，导致开头的音"抢跑"。</summary>
     private double _timelineOffsetMs;
 
-    /// <summary>演奏时间轴上的当前位置（毫秒，暂停时冻结）。</summary>
+    /// <summary>演奏时间轴上的当前位置（毫秒，暂停时冻结）。
+    /// 开播倒计时期间为**负值**（时间轴 0 点 = 倒计时结束那一刻）：谱面照常下落，但还没开始判定。</summary>
     public double PositionMs
     {
         get
@@ -114,7 +115,7 @@ public sealed class PlaybackEngine : IDisposable
             if (!IsRunning && !_watch.IsRunning) return 0;
             double now = _watch.Elapsed.TotalMilliseconds - _timelineOffsetMs - _pauseOffsetMs;
             if (_pause) now -= _watch.Elapsed.TotalMilliseconds - _pauseStartMs;
-            return Math.Max(0, now);
+            return now;
         }
     }
 
@@ -221,17 +222,25 @@ public sealed class PlaybackEngine : IDisposable
 
                 if (pass == 1 && _options.CountdownSeconds > 0)
                 {
+                    // 音乐时间轴的 0 点 = 倒计时结束的那一刻。
+                    // 于是倒计时期间 PositionMs 为负：下落谱面会先把音符"落"到判定线上，
+                    // 数到 0 时刚好落到线，才开始判定/演奏 —— 既不抢跑，也留出了准备时间。
+                    _timelineOffsetMs = _watch.Elapsed.TotalMilliseconds + _options.CountdownSeconds * 1000.0;
+
                     for (int s = _options.CountdownSeconds; s > 0 && !_stop; s--)
                     {
                         CountdownValue = s;
                         Status?.Invoke($"倒计时 {s} 秒…（准备好，{(waitMode ? "跟谱弹奏" : "自动弹奏")}即将开始）");
-                        if (!Sleep(1000)) { CountdownValue = 0; return; }
+                        // 精确等到这一秒结束（用时间轴坐标：-(s-1) 秒），避免 Sleep(1000) 累积误差
+                        if (!WaitUntil(-(s - 1) * 1000.0)) { CountdownValue = 0; return; }
                     }
                     CountdownValue = 0;
                 }
-
-                // 这一遍的音乐时间轴从真正开始处起算：倒计时不计入曲谱时间，重复播放每遍各自起算
-                _timelineOffsetMs = _watch.Elapsed.TotalMilliseconds;
+                else
+                {
+                    // 重复播放的每一遍：时间轴各自从这里起算
+                    _timelineOffsetMs = _watch.Elapsed.TotalMilliseconds;
+                }
 
                 Status?.Invoke(waitMode ? "跟谱弹奏：请按出高亮的音" : "自动弹奏：程序正在按键");
 

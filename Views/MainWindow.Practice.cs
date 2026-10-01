@@ -119,16 +119,26 @@ public partial class MainWindow
         };
 
         DateTime first = DateTime.MaxValue;
+        var playAt0 = DateTime.MinValue;
         _engine.NoteStarted += i =>
         {
             var now = DateTime.UtcNow;
             if (i == 0) first = now;
-            Program.Trace($"TIMINGTEST 音{i} 相对第 1 个音 +{(now - first).TotalMilliseconds:0} ms（预期 ≈ {i * 500}）");
+            Program.Trace($"TIMINGTEST 音{i} 相对第 1 个音 +{(now - first).TotalMilliseconds:0} ms（预期 ≈ {i * 500}）；距按下开始 {(now - playAt0).TotalMilliseconds:0} ms（第 1 个音应 ≈3000）");
         };
         _engine.Finished += () => Program.Trace("TIMINGTEST 播放结束");
 
+        playAt0 = DateTime.UtcNow;
         Program.Trace("TIMINGTEST 开始：3 秒倒计时后应有 8 个音，间隔应≈500ms");
         _engine.Play(parsed.Notes, _lib.EffectiveKeyMap, NotationKind.Pitch, 120, options);
+
+        // 倒计时期间 PositionMs 应为负（谱面在下落但还没开始判定）
+        Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(1500);
+            Program.Trace($"TIMINGTEST 倒计时中：CountdownValue={_engine.CountdownValue}，" +
+                          $"PositionMs={_engine.PositionMs:0}（应为负，约 -1500）");
+        }, DispatcherPriority.Background);
 
         Dispatcher.InvokeAsync(async () =>
         {
@@ -440,5 +450,6 @@ public partial class MainWindow
         }
     }
 }
+
 
 
