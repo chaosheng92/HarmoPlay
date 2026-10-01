@@ -137,9 +137,9 @@ public sealed class PlaybackEngine : IDisposable
     private double _freezeAt;
 
     /// <summary>冻住曲谱时间轴（跟谱/新手模式等你按键时用，画面与判定都停住）。</summary>
-    private void BeginFreeze()
+    private void BeginFreeze(double? at = null)
     {
-        _freezeAt = _freezeTimeline ? _freezeAt : PositionMs;
+        _freezeAt = at ?? (_freezeTimeline ? _freezeAt : PositionMs);
         _freezeTimeline = true;
     }
 
@@ -444,6 +444,8 @@ public sealed class PlaybackEngine : IDisposable
             bool hit = _options.FollowStrictKey ? chord.IsHeldByUser() : chord.IsKeyHeldByUser();
             if (hit)
             {
+                // 按对的一瞬间就解冻：谱面立刻继续往前走，这样你能看出这个音要按多久
+                EndFreeze();
                 FollowCorrect++;
                 if (_options.FollowRequireHold)
                 {
@@ -457,6 +459,7 @@ public sealed class PlaybackEngine : IDisposable
                             FollowMissed--;      // 撤销 HoldForDuration 记下的"漏"
                             Status?.Invoke($"「{note.Raw}」要按住整拍，请重新按对并按住不放");
                             WaitRelease(chord);
+                            BeginFreeze(note.StartBeat * _beatMs);   // 回到这个音的位置再等你
                             continue;
                         }
                         return false;
