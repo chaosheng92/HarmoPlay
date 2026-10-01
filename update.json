@@ -1,8 +1,8 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "published": "2026-10-01",
-  "notes": "首个版本：曲谱库 / 简谱编辑器 / 自动演奏 / 悬浮窗（经典堆叠 + 音游下落）/ 可配置键位映射（三角洲口琴预设）/ AI 转谱校验 / 更新接口 / 诊断包",
+  "notes": "新增：演奏打断键（WASD/空格/1234切枪/Tab背包，可自定义）与输入安全防护（急停热键 Ctrl+Alt+0、250ms 看门狗、启动清理、可选绝不碰鼠标）；修正固定音高指法；新增音游下落模式、AI 转谱校验 --validate、更新接口与诊断包",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "8a6ab8ee3b5a3c1bb91043bf5300ed9d1f48dd3abeb83f6976f6a616ecc42f34"
+  "sha256": "e74764138892cb81e2da08854346f53732dc5e46a40c0f2626e5b397cb0faa35"
 }

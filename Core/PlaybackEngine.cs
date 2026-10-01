@@ -25,6 +25,47 @@ public sealed class PlaybackEngine : IDisposable
     private Chord _pressed = Chord.Empty;
     private int _inProgress = -1;
 
+    /// <summary>保护"按下/松开"这一对操作，避免 UI 线程（停止/暂停）与引擎线程抢着改状态导致按键卡住。</summary>
+    private readonly object _inputLock = new();
+    private readonly Thread _watchdog;
+    private volatile bool _disposed;
+
+    public PlaybackEngine()
+    {
+        _watchdog = new Thread(WatchdogLoop)
+        {
+            IsBackground = true,
+            Name = "HarmoPlay.InputWatchdog",
+            Priority = ThreadPriority.BelowNormal,
+        };
+        _watchdog.Start();
+    }
+
+    /// <summary>看门狗：只要引擎没在跑，就保证没有任何键/鼠标键被按住。</summary>
+    private void WatchdogLoop()
+    {
+        while (!_disposed)
+        {
+            try
+            {
+                Thread.Sleep(250);
+                if (IsRunning) continue;
+                lock (_inputLock)
+                {
+                    if (_heldKeys.Count > 0 || _mouseHeld != MouseMod.None)
+                    {
+                        Program.Trace($"看门狗回收残留按键：keys={string.Join(",", _heldKeys)} 鼠标={_mouseHeld}");
+                        ReleaseAll();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Program.Trace("看门狗异常：" + ex.Message);
+            }
+        }
+    }
+
     public event Action<int>? NoteStarted;
     public event Action<int>? NoteFinished;
     public event Action<int>? PassFinished;
@@ -111,9 +152,33 @@ public sealed class PlaybackEngine : IDisposable
         if (t != null && t.IsAlive && t != Thread.CurrentThread)
             t.Join(500);
         _thread = null;
-        ReleaseAll();
+        lock (_inputLock)
+        {
+            ReleaseAll();
+        }
         CurrentIndex = -1;
         _inProgress = -1;
+    }
+
+    /// <summary>急停：停止 + 强制松开所有按键与鼠标键（含兜底扫描）。</summary>
+    public void PanicRelease(string reason = "急停")
+    {
+        Stop();
+        InputGuard.ReleaseEverything(NoteVirtualKeys(), reason);
+    }
+
+    /// <summary>当前键位预设里所有会用到的按键（急停/退出时兜底松开）。</summary>
+    public IEnumerable<int> NoteVirtualKeys() =>
+        _map.Keys.Select(k => Enum.TryParse<Key>(k, true, out var key) ? KeyInterop.VirtualKeyFromKey(key) : 0)
+                  .Where(vk => vk != 0);
+
+    /// <summary>解析音符对应的按键组合（含"绝不碰鼠标"选项）。</summary>
+    private Chord ChordFor(ScoreNote note)
+    {
+        var chord = Chord.Resolve(note, _map, _notation);
+        if (_options.SuppressMouseModifiers && chord.Mouse != MouseMod.None)
+            chord = chord.WithoutMouse();
+        return chord;
     }
 
     private void Run()
@@ -164,7 +229,7 @@ public sealed class PlaybackEngine : IDisposable
                         continue;
                     }
 
-                    var chord = Chord.Resolve(note, _map, _notation);
+                    var chord = ChordFor(note);
                     if (chord.Unplayable)
                     {
                         Status?.Invoke($"跳过超音域音「{note.Raw}」：{chord.Error}");
@@ -198,7 +263,7 @@ public sealed class PlaybackEngine : IDisposable
                     bool chain = _options.LegatoSameKey && i + 1 < _notes.Count
                                  && !_notes[i + 1].IsRest
                                  && Math.Abs(_notes[i + 1].StartBeat - (note.StartBeat + note.Beats)) < 0.0005
-                                 && Chord.Resolve(_notes[i + 1], _map, _notation).SameAs(chord);
+                                 && ChordFor(_notes[i + 1]).SameAs(chord);
                     if (!chain)
                     {
                         ReleaseAll();
@@ -284,13 +349,16 @@ public sealed class PlaybackEngine : IDisposable
 
     private void ApplyDown(Chord chord)
     {
-        if (chord.IsEmpty) return;
-        if (chord.Ctrl) Hold(0x11);
-        if (chord.Alt) Hold(0x12);
-        if (chord.Shift) Hold(0x10);
-        InputSender.MouseDown(chord.Mouse);
-        _mouseHeld |= chord.Mouse;
-        Hold(KeyInterop.VirtualKeyFromKey(chord.Key));
+        lock (_inputLock)
+        {
+            if (chord.IsEmpty) return;
+            if (chord.Ctrl) Hold(0x11);
+            if (chord.Alt) Hold(0x12);
+            if (chord.Shift) Hold(0x10);
+            InputSender.MouseDown(chord.Mouse);
+            _mouseHeld |= chord.Mouse;
+            Hold(KeyInterop.VirtualKeyFromKey(chord.Key));
+        }
     }
 
     private void Hold(int vk)
@@ -305,14 +373,17 @@ public sealed class PlaybackEngine : IDisposable
 
     private void ReleaseAll()
     {
-        // 只松开自己按下去的键，顺序与按下相反（先琴键，后修饰键）
-        for (int i = _heldKeys.Count - 1; i >= 0; i--)
-            InputSender.KeyUp((ushort)_heldKeys[i]);
-        _heldKeys.Clear();
-        if (_mouseHeld != MouseMod.None)
+        lock (_inputLock)
         {
-            InputSender.MouseUp(_mouseHeld);
-            _mouseHeld = MouseMod.None;
+            // 只松开自己按下去的键，顺序与按下相反（先琴键，后修饰键）
+            for (int i = _heldKeys.Count - 1; i >= 0; i--)
+                InputSender.KeyUp((ushort)_heldKeys[i]);
+            _heldKeys.Clear();
+            if (_mouseHeld != MouseMod.None)
+            {
+                InputSender.MouseUp(_mouseHeld);
+                _mouseHeld = MouseMod.None;
+            }
         }
     }
 
@@ -321,7 +392,9 @@ public sealed class PlaybackEngine : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         Stop();
+        PanicRelease("程序退出");
         _gate.Dispose();
     }
 }

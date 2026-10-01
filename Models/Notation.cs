@@ -19,3 +19,26 @@ public static class NotationKindText
 
     public static string ToId(this NotationKind k) => k == NotationKind.Pitch ? "pitch" : "physical";
 }
+
+/// <summary>演奏打断键：玩家按这些键时（移动 / 跳跃 / 切枪 / 背包）游戏里的口琴会中断，
+/// 程序据此暂停演奏，避免继续往菜单界面里灌按键。</summary>
+public sealed class InterruptKey
+{
+    public string Key { get; set; } = "W";
+    public bool Enabled { get; set; } = true;
+    public string Memo { get; set; } = "";
+
+    public static List<InterruptKey> CreateDefaults() => new()
+    {
+        new InterruptKey { Key = "W", Memo = "前进" },
+        new InterruptKey { Key = "A", Memo = "左移" },
+        new InterruptKey { Key = "S", Memo = "后退" },
+        new InterruptKey { Key = "D", Memo = "右移" },
+        new InterruptKey { Key = "Space", Memo = "跳跃" },
+        new InterruptKey { Key = "D1", Memo = "切枪 1" },
+        new InterruptKey { Key = "D2", Memo = "切枪 2" },
+        new InterruptKey { Key = "D3", Memo = "切枪 3" },
+        new InterruptKey { Key = "D4", Memo = "切枪 4" },
+        new InterruptKey { Key = "Tab", Memo = "打开背包" },
+    };
+}

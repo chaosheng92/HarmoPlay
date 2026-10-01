@@ -29,6 +29,9 @@
                 <Button Content="导入曲谱文件…" Click="OnImportFiles"/>
                 <Button Content="新建曲谱" Click="OnNewSong"/>
                 <Button Content="键位映射…" Click="OnOpenKeyMapEditor"/>
+                <Border Width="1" Background="{StaticResource Line}" Margin="6,2,14,2"/>
+                <Button Content="✋ 急停（松开全部按键）" Style="{StaticResource DangerButton}" Click="OnPanicRelease"
+                        ToolTip="立刻停止演奏并强制松开所有按键与鼠标键（热键 Ctrl+Alt+0）"/>
             </WrapPanel>
         </Border>
 
@@ -429,6 +432,63 @@
                                     <CheckBox x:Name="ChkFallKeyHint" Content="在音符块上显示按键字母" Click="OnOverlaySettingChanged"/>
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0"
                                                Text="下落模式：音符按节奏从上方落下，落到最下面判定线时按键，像音游；跟练模式下会等你按对再继续。"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="演奏打断键（移动 / 跳跃 / 切枪 / 背包，可自定义）">
+                                <StackPanel>
+                                    <CheckBox x:Name="ChkInterruptEnabled" Content="启用打断检测" Click="OnInterruptSettingChanged"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="打断后" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <ComboBox x:Name="ComboInterruptBehavior" Width="230" SelectionChanged="OnInterruptSettingChanged"/>
+                                        <TextBlock Text="等" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                        <TextBox x:Name="TxtInterruptDelay" Width="56" TextChanged="OnInterruptSettingChanged"/>
+                                        <TextBlock Text="毫秒" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                    </StackPanel>
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,4"
+                                               Text="玩家按这些键时（游戏里的口琴会中断），程序自动暂停演奏，避免继续把按键灌进背包/菜单界面。"/>
+                                    <ItemsControl x:Name="ListInterrupts">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" VerticalAlignment="Center"
+                                                              Click="OnInterruptItemChanged" ToolTip="是否启用这个打断键"/>
+                                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                                        <TextBlock Text="{Binding KeyText}" FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Memo}" FontSize="11" Foreground="#8FA0B5"/>
+                                                    </StackPanel>
+                                                    <Button Grid.Column="2" Content="改键" Tag="{Binding}" Click="OnChangeInterrupt"/>
+                                                    <Button Grid.Column="3" Content="✕" Style="{StaticResource DangerButton}" Margin="0"
+                                                            Tag="{Binding}" Click="OnRemoveInterrupt" ToolTip="删除这个打断键"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <Button Content="＋ 添加打断键" Click="OnAddInterrupt"/>
+                                        <Button Content="恢复默认（WASD/空格/1234/Tab）" Click="OnResetInterrupts"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="TxtInterruptWarn" Foreground="#FFD23F" FontSize="12" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="输入安全（防止按键/鼠标被卡住）">
+                                <StackPanel>
+                                    <CheckBox x:Name="ChkSuppressMouse" Content="不发送鼠标修饰键（只按白键，绝不碰鼠标）"
+                                              Click="OnInputSafetyChanged"
+                                              ToolTip="勾上后不会按下左/中/右键，代价是升降调失效，只适合全白键的谱子"/>
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0"
+                                               Text="程序只在发键瞬间按住鼠标键，发完立刻松开；停止/急停/退出都会强制松开，另有 250ms 看门狗兜底。"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button Content="✋ 立即松开所有按键" Style="{StaticResource DangerButton}" Click="OnPanicRelease"/>
+                                        <TextBlock x:Name="TxtInputGuard" VerticalAlignment="Center" FontSize="12" Foreground="#8FA0B5"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </GroupBox>
 

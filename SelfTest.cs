@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using System.Windows.Input;
 using HarmoPlay.Core;
 using HarmoPlay.Models;
 
@@ -118,6 +119,27 @@ public static class SelfTest
             var lib2 = LibraryStore.Load();
             var diag = Diagnostics.Build(lib2);
             Log($"  诊断包 {diag.Length} 字符，含版本/系统/键位/悬浮窗/日志，不含曲谱内容：{!diag.Contains(lib2.Songs.FirstOrDefault()?.Score ?? "\u0000")}");
+
+            Log("");
+            Log("-- 打断键与输入安全 --");
+            var interruptKeys = InterruptKey.CreateDefaults();
+            Log($"  默认打断键 {interruptKeys.Count} 个：" + string.Join(" ", interruptKeys.Select(k => ScoreParser.PrettyKey(k.Key))));
+            var noteKeyNames = map.Keys.Select(k => k.ToUpperInvariant()).ToHashSet();
+            var clashInterrupt = interruptKeys.Where(k => noteKeyNames.Contains(k.Key.ToUpperInvariant())).ToList();
+            Log($"  与琴键冲突的打断键：{(clashInterrupt.Count == 0 ? "无" : string.Join("、", clashInterrupt.Select(c => ScoreParser.PrettyKey(c.Key))))}");
+
+            var pitchSample = ScoreParser.Parse("#1 5 1' #7'", "t", 90, NotationKind.Pitch);
+            foreach (var n in pitchSample.Notes)
+            {
+                var normal = Chord.Resolve(n, map, NotationKind.Pitch);
+                var muted = normal.Mouse != MouseMod.None ? normal.WithoutMouse() : normal;
+                Log($"      {n.Raw,-4} 正常={normal.Text,-4}({normal.Mouse}) → 绝不碰鼠标={muted.Text,-4}({muted.Mouse})");
+            }
+
+            InputGuard.ReleaseEverything(
+                map.Keys.Select(k => Enum.TryParse<Key>(k, true, out var key) ? KeyInterop.VirtualKeyFromKey(key) : 0).Where(v => v != 0),
+                "自检");
+            Log($"  InputGuard 强制松开：已执行 {InputGuard.ReleaseCount} 次，最近原因「{InputGuard.LastReason}」");
 
             Log("");
             Log("-- 曲谱库内容 --");

@@ -86,6 +86,8 @@ public sealed class PlaybackOptions
     public bool WaitForInput { get; set; }
     public bool LegatoSameKey { get; set; } = true;
     public int MinHoldMs { get; set; } = 60;
+    /// <summary>只按白键、不发送任何鼠标修饰键（彻底不碰鼠标，代价是变调失效）。</summary>
+    public bool SuppressMouseModifiers { get; set; }
 
     public PlaybackOptions Clone() => (PlaybackOptions)MemberwiseClone();
 }
@@ -104,6 +106,13 @@ public sealed class AppSettings
     public string? LastSongId { get; set; }
     public bool FirstRunDone { get; set; }
 
+    // ---- 演奏打断（移动 / 跳跃 / 切枪 / 背包，可自定义）----
+    public bool InterruptEnabled { get; set; } = true;
+    public List<InterruptKey> InterruptKeys { get; set; } = InterruptKey.CreateDefaults();
+    /// <summary>0 = 暂停并等我手动继续；1 = 松开这些键之后自动继续。</summary>
+    public int InterruptBehavior { get; set; }
+    public int InterruptResumeDelayMs { get; set; } = 600;
+
     // ---- 更新与反馈（仓库地址，上传 GitHub 后改这两处即可）----
     public string UpdateUrl { get; set; } = "https://raw.githubusercontent.com/你的用户名/HarmoPlay/main/update.json";
     public string DownloadUrl { get; set; } = "https://github.com/你的用户名/HarmoPlay/releases/latest";
@@ -121,6 +130,7 @@ public static class DefaultHotkeys
     public const string ToggleOverlay = "toggleoverlay";
     public const string LockOverlay = "lockoverlay";
     public const string ToggleWait = "togglewait";
+    public const string PanicRelease = "panicrelease";
     public const string Quick = "quick";
 
     public static List<HotkeySpec> CreateDefaults() => new()
@@ -132,6 +142,7 @@ public static class DefaultHotkeys
         new HotkeySpec { Action = ToggleOverlay, Key = "H",  Modifiers = "Alt" },
         new HotkeySpec { Action = LockOverlay,   Key = "L",  Modifiers = "Alt" },
         new HotkeySpec { Action = ToggleWait,    Key = "T",  Modifiers = "Alt" },
+        new HotkeySpec { Action = PanicRelease,  Key = "D0", Modifiers = "Ctrl+Alt" },
         new HotkeySpec { Action = Quick + "1",   Key = "D4", Modifiers = "Alt" },
         new HotkeySpec { Action = Quick + "2",   Key = "D5", Modifiers = "Alt" },
         new HotkeySpec { Action = Quick + "3",   Key = "D6", Modifiers = "Alt" },
@@ -152,6 +163,7 @@ public static class HotkeyActions
         DefaultHotkeys.ToggleOverlay => "显示 / 隐藏悬浮窗",
         DefaultHotkeys.LockOverlay => "锁定 / 解锁悬浮窗（点击穿透）",
         DefaultHotkeys.ToggleWait => "切换 自动演奏 / 跟练模式",
+        DefaultHotkeys.PanicRelease => "急停：立刻松开所有按键与鼠标键",
         _ when action.StartsWith(DefaultHotkeys.Quick) =>
             $"快捷曲 {action.Substring(DefaultHotkeys.Quick.Length)}",
         _ => action

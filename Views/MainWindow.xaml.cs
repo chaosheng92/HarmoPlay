@@ -33,6 +33,19 @@ public partial class MainWindow : Window
         public string Text => Spec.Text;
     }
 
+    /// <summary>打断键列表的一行。</summary>
+    public sealed class InterruptRow
+    {
+        public InterruptKey Model { get; init; } = new();
+        public bool Enabled
+        {
+            get => Model.Enabled;
+            set => Model.Enabled = value;
+        }
+        public string KeyText => ScoreParser.PrettyKey(Model.Key);
+        public string Memo => string.IsNullOrWhiteSpace(Model.Memo) ? "（无说明）" : Model.Memo;
+    }
+
     private readonly Library _lib;
     private readonly PlaybackEngine _engine = new();
     private readonly HotkeyManager _hotkeys = new();
@@ -44,6 +57,14 @@ public partial class MainWindow : Window
     private bool _loading = true;
     private bool _dirty;
     private string _lastDownloadUrl = "";
+    private readonly List<InterruptRow> _interruptRows = new();
+    private readonly System.Windows.Threading.DispatcherTimer _interruptTimer = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(50),
+    };
+    private string _interruptedBy = "";
+    private DateTime _interruptReleaseAt = DateTime.MinValue;
+    private DateTime _playbackStartedAt = DateTime.MinValue;
 
     public MainWindow()
     {
@@ -70,6 +91,9 @@ public partial class MainWindow : Window
             UpdatePlayButton();
         });
         _engine.PassFinished += p => Dispatcher.InvokeAsync(() => SetStatus($"第 {p} 遍完成"));
+
+        _interruptTimer.Tick += OnInterruptTick;
+        _interruptTimer.Start();
 
         _loading = false;
         Loaded += (_, _) =>
@@ -144,6 +168,24 @@ public partial class MainWindow : Window
         TxtUpdateResult.Text = string.IsNullOrWhiteSpace(_lib.Settings.LastUpdateResult)
             ? "点「检查更新」从仓库读取最新版本信息（无网络时可跳过）。"
             : _lib.Settings.LastUpdateResult;
+
+        // 演奏打断键
+        ChkInterruptEnabled.IsChecked = _lib.Settings.InterruptEnabled;
+        ComboInterruptBehavior.ItemsSource = new[] { "暂停，等我手动继续", "松开这些键后自动继续" };
+        ComboInterruptBehavior.SelectedIndex = _lib.Settings.InterruptBehavior == 1 ? 1 : 0;
+        TxtInterruptDelay.Text = _lib.Settings.InterruptResumeDelayMs.ToString();
+        RefreshInterruptList();
+
+        // 输入安全
+        ChkSuppressMouse.IsChecked = _lib.Settings.Playback.SuppressMouseModifiers;
+        TxtInputGuard.Text = $"已就绪（急停热键 {(_lib.Settings.Hotkeys.FirstOrDefault(h => h.Action == DefaultHotkeys.PanicRelease)?.Text ?? "Ctrl+Alt+0")}）";
+
+        // 启动时清理上一次可能残留的按键
+        Core.InputGuard.ReleaseEverything(KeyVirtualKeys(_lib.EffectiveKeyMap), "启动清理");
+        Core.InputGuard.Released += reason => Dispatcher.InvokeAsync(() =>
+        {
+            TxtInputGuard.Text = $"最近一次强制松开：{reason}（{DateTime.Now:HH:mm:ss}）";
+        });
     }
 
     private void InitHotkeys()
@@ -151,6 +193,8 @@ public partial class MainWindow : Window
         _hotkeys.Pressed += (_, e) => Dispatcher.InvokeAsync(() => HandleHotkey(e.Action));
         var failed = _hotkeys.RegisterAll(_lib.Settings.Hotkeys);
         TxtHotkeyWarn.Text = failed.Count == 0 ? "" : "注册失败：" + string.Join("、", failed);
+        Program.Trace($"热键注册：共 {_lib.Settings.Hotkeys.Count} 条，失败 {failed.Count} 条" +
+                      (failed.Count > 0 ? "（" + string.Join("、", failed) + "）" : ""));
     }
 
     private void InitOverlay()
@@ -321,6 +365,8 @@ public partial class MainWindow : Window
         LibraryStore.Save(_lib);
 
         if (_overlay != null && _lib.Settings.Overlay.HideWhilePlaying) _overlay.Hide();
+        _playbackStartedAt = DateTime.Now;
+        _interruptedBy = "";
         _engine.Play(_parsed.Notes, _lib.EffectiveKeyMap, _parsed.Notation, bpm, options);
         UpdatePlayButton();
         SetStatus(options.WaitForInput ? "跟练模式：按提示的键" : $"演奏中 · {bpm:0.#} BPM · 速度 {options.Speed:0.00}x");
@@ -469,6 +515,9 @@ public partial class MainWindow : Window
             case DefaultHotkeys.ToggleWait:
                 ChkWaitMode.IsChecked = ChkWaitMode.IsChecked != true;
                 OnWaitModeChanged(this, new RoutedEventArgs());
+                break;
+            case DefaultHotkeys.PanicRelease:
+                OnPanicRelease(this, new RoutedEventArgs());
                 break;
             default:
                 if (action.StartsWith(DefaultHotkeys.Quick))
@@ -1041,6 +1090,181 @@ public partial class MainWindow : Window
         }
     }
 
+    // ================================================================ 打断键 / 输入安全
+
+    private static IEnumerable<int> KeyVirtualKeys(KeyMap map) =>
+        map.Keys.Select(k => Enum.TryParse<Key>(k, true, out var key) ? KeyInterop.VirtualKeyFromKey(key) : 0)
+                 .Where(vk => vk != 0);
+
+    private void RefreshInterruptList()
+    {
+        _interruptRows.Clear();
+        foreach (var k in _lib.Settings.InterruptKeys)
+            _interruptRows.Add(new InterruptRow { Model = k });
+        ListInterrupts.ItemsSource = null;
+        ListInterrupts.ItemsSource = _interruptRows;
+        UpdateInterruptWarn();
+    }
+
+    private void UpdateInterruptWarn()
+    {
+        var noteKeys = _lib.EffectiveKeyMap.Keys
+            .Select(k => k.Equals("OemComma", StringComparison.OrdinalIgnoreCase) ? "OemComma" : k.ToUpperInvariant())
+            .ToHashSet();
+        var clashes = _lib.Settings.InterruptKeys
+            .Where(k => k.Enabled && noteKeys.Contains(k.Key.ToUpperInvariant()))
+            .Select(k => ScoreParser.PrettyKey(k.Key))
+            .ToList();
+
+        TxtInterruptWarn.Text = clashes.Count == 0
+            ? ""
+            : "注意：打断键 " + string.Join("、", clashes) +
+              " 与琴键重复，演奏时会自己把自己打断，建议换一个键。";
+    }
+
+    private void OnInterruptSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _lib.Settings.InterruptEnabled = ChkInterruptEnabled.IsChecked == true;
+        _lib.Settings.InterruptBehavior = ComboInterruptBehavior.SelectedIndex == 1 ? 1 : 0;
+        _lib.Settings.InterruptResumeDelayMs = ParseInt(TxtInterruptDelay.Text, _lib.Settings.InterruptResumeDelayMs, 100, 10000);
+        LibraryStore.Save(_lib);
+    }
+
+    private void OnInterruptItemChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        UpdateInterruptWarn();
+        LibraryStore.Save(_lib);
+    }
+
+    private void OnChangeInterrupt(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not InterruptRow row) return;
+        var dlg = new HotkeyCaptureWindow(new HotkeySpec { Key = row.Model.Key, Modifiers = "" }) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+
+        row.Model.Key = dlg.CapturedKey.ToString();
+        if (!string.IsNullOrEmpty(dlg.CapturedModifiers))
+            SetStatus("打断键只支持单键；组合键请配到「全局热键」里");
+        ListInterrupts.Items.Refresh();
+        UpdateInterruptWarn();
+        LibraryStore.Save(_lib);
+    }
+
+    private void OnRemoveInterrupt(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not InterruptRow row) return;
+        _lib.Settings.InterruptKeys.Remove(row.Model);
+        RefreshInterruptList();
+        LibraryStore.Save(_lib);
+    }
+
+    private void OnAddInterrupt(object sender, RoutedEventArgs e)
+    {
+        var dlg = new HotkeyCaptureWindow(new HotkeySpec { Key = "W", Modifiers = "" }) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        _lib.Settings.InterruptKeys.Add(new InterruptKey { Key = dlg.CapturedKey.ToString(), Memo = "自定义" });
+        RefreshInterruptList();
+        LibraryStore.Save(_lib);
+    }
+
+    private void OnResetInterrupts(object sender, RoutedEventArgs e)
+    {
+        _lib.Settings.InterruptKeys = InterruptKey.CreateDefaults();
+        RefreshInterruptList();
+        LibraryStore.Save(_lib);
+        SetStatus("打断键已恢复默认：W A S D 空格 1 2 3 4 Tab");
+    }
+
+    private void OnInputSafetyChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _lib.Settings.Playback.SuppressMouseModifiers = ChkSuppressMouse.IsChecked == true;
+        LibraryStore.Save(_lib);
+        SetStatus(ChkSuppressMouse.IsChecked == true
+            ? "已开启「不发送鼠标修饰键」：只按白键，不会再碰鼠标（升降调失效）"
+            : "已关闭「不发送鼠标修饰键」：会按住左/中/右键来完成升降调");
+    }
+
+    private void OnPanicRelease(object sender, RoutedEventArgs e)
+    {
+        _engine.PanicRelease("急停");
+        _interruptedBy = "";
+        UpdatePlayButton();
+        SetStatus("已急停：演奏停止，所有按键与鼠标键都已强制松开");
+    }
+
+    /// <summary>打断检测：玩家按了移动 / 跳跃 / 切枪 / 背包键就暂停演奏。</summary>
+    private void OnInterruptTick(object? sender, EventArgs e)
+    {
+        if (!_lib.Settings.InterruptEnabled) return;
+        var keys = _lib.Settings.InterruptKeys.Where(k => k.Enabled).ToList();
+        if (keys.Count == 0) return;
+
+        if (!_engine.IsRunning)
+        {
+            _interruptedBy = "";
+            return;
+        }
+
+        // 开播瞬间不判打断：手可能还按在开始热键上
+        if ((DateTime.Now - _playbackStartedAt).TotalMilliseconds < 400) return;
+
+        // 带 Alt/Ctrl/Win 的组合不判打断：那多半是程序自己的热键
+        // （Alt+1 播放、Alt+4~9 快捷曲、Ctrl+Alt+0 急停…… 其中的数字键不该被当成"切枪"）
+        bool modifierHeld = InputSender.IsDown(Key.LeftAlt) || InputSender.IsDown(Key.RightAlt)
+                         || InputSender.IsDown(Key.LeftCtrl) || InputSender.IsDown(Key.RightCtrl)
+                         || InputSender.IsDown(Key.LWin) || InputSender.IsDown(Key.RWin);
+        if (modifierHeld) return;
+
+        // 与琴键重复的按键不判打断（否则程序会自己打断自己）
+        var noteKeys = _lib.EffectiveKeyMap.Keys;
+
+        string? down = null;
+        foreach (var item in keys)
+        {
+            if (noteKeys.Any(nk => nk.Equals(item.Key, StringComparison.OrdinalIgnoreCase))) continue;
+            if (!Enum.TryParse<Key>(item.Key, true, out var key) || key == Key.None) continue;
+            if (InputSender.IsDown(key))
+            {
+                down = ScoreParser.PrettyKey(item.Key) + (string.IsNullOrWhiteSpace(item.Memo) ? "" : $"（{item.Memo}）");
+                break;
+            }
+        }
+
+        if (down != null)
+        {
+            if (!_engine.IsPaused)
+            {
+                _engine.Pause();
+                _interruptedBy = down;
+                Program.Trace($"打断：检测到 {down}，暂停演奏（第 {_engine.CurrentIndex + 1} 个音）");
+                SetStatus($"检测到「{down}」 → 已暂停演奏；" +
+                          (_lib.Settings.InterruptBehavior == 1 ? "松开后自动继续" : "按 Alt+1 继续"));
+                UpdatePlayButton();
+            }
+            _interruptReleaseAt = DateTime.MinValue;
+            return;
+        }
+
+        if (_engine.IsPaused && _interruptedBy.Length > 0 && _lib.Settings.InterruptBehavior == 1)
+        {
+            if (_interruptReleaseAt == DateTime.MinValue)
+            {
+                _interruptReleaseAt = DateTime.Now;
+            }
+            else if ((DateTime.Now - _interruptReleaseAt).TotalMilliseconds >= _lib.Settings.InterruptResumeDelayMs)
+            {
+                _engine.Resume();
+                Program.Trace($"打断：{_interruptedBy} 已松开，自动继续演奏");
+                SetStatus($"「{_interruptedBy}」已松开，继续演奏");
+                _interruptedBy = "";
+                UpdatePlayButton();
+            }
+        }
+    }
+
     private void SetStatus(string text) => TxtStatus.Text = text;
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -1059,6 +1283,7 @@ public partial class MainWindow : Window
 
         _engine.Stop();
         _engine.Dispose();
+        Core.InputGuard.ReleaseEverything(KeyVirtualKeys(_lib.EffectiveKeyMap), "退出程序");
         _hotkeys.Dispose();
         SyncOverlaySettingsFromWindow();
         LibraryStore.Save(_lib);

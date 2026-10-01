@@ -65,6 +65,19 @@ public sealed class Chord
     public bool SameAs(Chord other) =>
         Key == other.Key && Mouse == other.Mouse && Ctrl == other.Ctrl && Alt == other.Alt && Shift == other.Shift;
 
+    /// <summary>去掉鼠标修饰键（用户选择"绝不碰鼠标"时使用，会丢失变调）。</summary>
+    public Chord WithoutMouse() => new()
+    {
+        Key = Key,
+        Mouse = MouseMod.None,
+        Ctrl = Ctrl,
+        Alt = Alt,
+        Shift = Shift,
+        Midi = Midi,
+        Color = Mouse == MouseMod.None ? Color : "#FFFFFF",
+        ModLabel = Mouse == MouseMod.None ? ModLabel : "本音（已忽略变调）",
+    };
+
     public static Chord Resolve(ScoreNote note, KeyMap map, NotationKind notation)
     {
         if (note.IsRest) return Empty;
