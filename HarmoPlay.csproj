@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>HarmoPlay</AssemblyName>
     <RootNamespace>HarmoPlay</RootNamespace>
-    <Version>1.4.0</Version>
+    <Version>2.0.0</Version>
     <Product>口琴谱演奏器</Product>
     <AssemblyTitle>口琴谱演奏器 HarmoPlay</AssemblyTitle>
     <Description>简谱曲谱库 / 自动演奏 / 悬浮窗键位提示（三角洲行动口琴预设）</Description>
@@ -31,3 +31,4 @@
   </ItemGroup>
 
 </Project>
+

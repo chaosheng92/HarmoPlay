@@ -38,7 +38,11 @@
 
         <!-- 工具栏 -->
         <Border Grid.Row="1" Background="{StaticResource Panel}" CornerRadius="8" Padding="10,8" Margin="0,0,0,10">
-            <WrapPanel VerticalAlignment="Center">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" x:Name="BtnSettings" Content="⚙ 设置" VerticalAlignment="Top"
+                        Margin="10,0,0,0" Click="OnOpenSettings"
+                        ToolTip="二级设置菜单：键位与变调 / 悬浮窗 / 演奏与跟谱 / 打断键 / 输入安全 / 全局热键 / 更新与反馈 / 数据与关于"/>
+                <WrapPanel VerticalAlignment="Center">
                 <Button x:Name="BtnPlay" Content="▶ 播放 / 暂停" Style="{StaticResource PrimaryButton}" Click="OnPlayPause" MinWidth="130"/>
                 <Button x:Name="BtnStop" Content="■ 停止" Click="OnStop"/>
                 <Button Content="⏮ 上一首" Click="OnPrevSong"/>
@@ -56,11 +60,11 @@
                 <Button Content="导入鼠鼠口琴谱曲库" Click="OnImportSquirrel"/>
                 <Button Content="导入曲谱文件…" Click="OnImportFiles"/>
                 <Button Content="新建曲谱" Click="OnNewSong"/>
-                <Button Content="键位映射…" Click="OnOpenKeyMapEditor"/>
                 <Border Width="1" Background="{StaticResource Line}" Margin="6,2,14,2"/>
                 <Button Content="✋ 急停（松开全部按键）" Style="{StaticResource DangerButton}" Click="OnPanicRelease"
                         ToolTip="立刻停止演奏并强制松开所有按键与鼠标键（热键 Ctrl+Alt+0）"/>
-            </WrapPanel>
+                </WrapPanel>
+            </DockPanel>
         </Border>
 
         <!-- 主体 -->
@@ -334,279 +338,7 @@
             </TabItem>
 
             <!-- 键位与设置 -->
-            <TabItem Header="键位与设置">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                            <GroupBox Header="键位映射">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="预设" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <ComboBox x:Name="ComboKeyMap" Width="300" SelectionChanged="OnKeyMapPresetChanged"/>
-                                        <Button Content="编辑 / 自定义…" Click="OnOpenKeyMapEditor" Margin="8,0,0,0"/>
-                                    </StackPanel>
-                                    <TextBlock x:Name="TxtKeyMapNote" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="全局热键（演奏控制）">
-                                <StackPanel>
-                                    <ItemsControl x:Name="ListHotkeys">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Margin="0,3">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="120"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel>
-                                                        <TextBlock Text="{Binding Desc}" FontSize="12"/>
-                                                        <TextBlock Text="{Binding Text}" FontSize="11" Foreground="#8FA0B5"/>
-                                                    </StackPanel>
-                                                    <Button Grid.Column="2" Content="改键" Margin="0"
-                                                            Tag="{Binding}" Click="OnChangeHotkey"/>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <TextBlock x:Name="TxtHotkeyWarn" Foreground="#FFD23F" FontSize="12" Margin="0,6,0,0"/>
-                                    <TextBlock Text="说明：热键必须带 Ctrl 或 Alt，避免和游戏里的演奏按键冲突。"
-                                               Style="{StaticResource Caption}" Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="数据">
-                                <StackPanel>
-                                    <TextBlock x:Name="TxtDataPath" FontSize="12" Foreground="#8FA0B5"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <Button Content="打开数据目录" Click="OnOpenDataDir"/>
-                                        <Button Content="保存全部设置" Style="{StaticResource PrimaryButton}" Click="OnSaveAll"/>
-                                        <Button Content="恢复默认设置" Click="OnResetSettings"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </GroupBox>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                            <GroupBox Header="悬浮窗">
-                                <StackPanel>
-                                    <CheckBox x:Name="ChkOverlayVisible" Content="启用悬浮窗" Click="OnOverlaySettingChanged"/>
-                                    <CheckBox x:Name="ChkOverlayClickThrough" Content="点击穿透（不挡游戏操作，推荐）" Click="OnOverlaySettingChanged"/>
-                                    <CheckBox x:Name="ChkOverlayLanes" Content="显示 8 条键位通道" Click="OnOverlaySettingChanged"/>
-                                    <CheckBox x:Name="ChkOverlayKeys" Content="在音符块上显示按键字母" Click="OnOverlaySettingChanged"/>
-                                    <CheckBox x:Name="ChkOverlayTitle" Content="显示曲名 / BPM / 进度" Click="OnOverlaySettingChanged"/>
-                                    <CheckBox x:Name="ChkHideWhilePlaying" Content="演奏时自动隐藏悬浮窗" Click="OnOverlaySettingChanged"/>
-
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="46"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="不透明度" VerticalAlignment="Center"/>
-                                        <Slider x:Name="SldOverlayOpacity" Grid.Column="1" Minimum="0.2" Maximum="1" Value="0.9"
-                                                ValueChanged="OnOverlaySettingChanged"/>
-                                        <TextBlock x:Name="TxtOverlayOpacity" Grid.Column="2" HorizontalAlignment="Right"
-                                                   VerticalAlignment="Center" FontSize="12" Foreground="#8FA0B5"/>
-                                    </Grid>
-
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="每通道最多" VerticalAlignment="Center"/>
-                                        <TextBox x:Name="TxtOverlayStack" Grid.Column="1" TextChanged="OnOverlaySettingChanged"/>
-                                    </Grid>
-
-                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                        <Button Content="解锁拖动（Alt+L）" Click="OnUnlockOverlay"/>
-                                        <Button Content="复位位置" Click="OnResetOverlayPosition"/>
-                                        <Button Content="预览悬浮窗" Click="OnPreviewOverlay"/>
-                                    </StackPanel>
-
-                                    <TextBlock x:Name="TxtOverlayHotkey" Style="{StaticResource Caption}" Margin="0,10,0,4"/>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button Content="设置显示/隐藏快捷键…" Click="OnSetOverlayHotkey"/>
-                                        <Button Content="设置备用快捷键…" Click="OnSetOverlayHotkey2"
-                                                ToolTip="默认留空，位置随便你设；比如 Alt+\ 或 F8"/>
-                                        <Button Content="清除备用" Click="OnClearOverlayHotkey2"/>
-                                    </StackPanel>
-
-                                    <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,4"
-                                               Text="位置微调：解锁后可直接拖动悬浮窗（拖动条会变橙色），也可以在这里精确设置 / 点箭头微调"/>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="X" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                        <TextBox x:Name="TxtOverlayX" Width="56" TextChanged="OnOverlayPosChanged"/>
-                                        <TextBlock Text="Y" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                        <TextBox x:Name="TxtOverlayY" Width="56" TextChanged="OnOverlayPosChanged"/>
-                                        <Button Content="←" Click="OnNudgeLeft" Margin="10,0,4,0"/>
-                                        <Button Content="↑" Click="OnNudgeUp" Margin="0,0,4,0"/>
-                                        <Button Content="↓" Click="OnNudgeDown" Margin="0,0,4,0"/>
-                                        <Button Content="→" Click="OnNudgeRight" Margin="0"/>
-                                        <Button Content="居中" Click="OnCenterOverlay" Margin="8,0,0,0"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="音游下落模式">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="模式" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <ComboBox x:Name="ComboOverlayMode" Width="220" SelectionChanged="OnOverlaySettingChanged"/>
-                                    </StackPanel>
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="70"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="下落速度" VerticalAlignment="Center"/>
-                                        <Slider x:Name="SldFallSpeed" Grid.Column="1" Minimum="80" Maximum="600" Value="260"
-                                                TickFrequency="20" IsSnapToTickEnabled="True" ValueChanged="OnOverlaySettingChanged"/>
-                                        <TextBlock x:Name="TxtFallSpeed" Grid.Column="2" HorizontalAlignment="Right"
-                                                   VerticalAlignment="Center" FontSize="12" Foreground="#8FA0B5"/>
-                                    </Grid>
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="提前显示" VerticalAlignment="Center"/>
-                                        <TextBox x:Name="TxtLookAhead" Grid.Column="1" TextChanged="OnOverlaySettingChanged"
-                                                 ToolTip="音符在判定线上方多少秒开始出现"/>
-                                    </Grid>
-                                    <CheckBox x:Name="ChkJudgmentLine" Content="显示判定线与落点提示" Click="OnOverlaySettingChanged"/>
-                                    <CheckBox x:Name="ChkFallKeyHint" Content="在音符块上显示按键字母" Click="OnOverlaySettingChanged"/>
-                                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0"
-                                               Text="下落模式：音符按节奏从上方落下，落到最下面判定线时按键，像音游；跟练模式下会等你按对再继续。"/>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="演奏打断键（移动 / 跳跃 / 切枪 / 背包，可自定义）">
-                                <StackPanel>
-                                    <CheckBox x:Name="ChkInterruptEnabled" Content="启用打断检测" Click="OnInterruptSettingChanged"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                        <TextBlock Text="打断后" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <ComboBox x:Name="ComboInterruptBehavior" Width="230" SelectionChanged="OnInterruptSettingChanged"/>
-                                        <TextBlock Text="等" VerticalAlignment="Center" Margin="10,0,4,0"/>
-                                        <TextBox x:Name="TxtInterruptDelay" Width="56" TextChanged="OnInterruptSettingChanged"/>
-                                        <TextBlock Text="毫秒" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                                    </StackPanel>
-                                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,4"
-                                               Text="玩家按这些键时（游戏里的口琴会中断），程序自动暂停演奏，避免继续把按键灌进背包/菜单界面。"/>
-                                    <ItemsControl x:Name="ListInterrupts">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Margin="0,2">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay}" VerticalAlignment="Center"
-                                                              Click="OnInterruptItemChanged" ToolTip="是否启用这个打断键"/>
-                                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                                        <TextBlock Text="{Binding KeyText}" FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"/>
-                                                        <TextBlock Text="{Binding Memo}" FontSize="11" Foreground="#8FA0B5"/>
-                                                    </StackPanel>
-                                                    <Button Grid.Column="2" Content="改键" Tag="{Binding}" Click="OnChangeInterrupt"/>
-                                                    <Button Grid.Column="3" Content="✕" Style="{StaticResource DangerButton}" Margin="0"
-                                                            Tag="{Binding}" Click="OnRemoveInterrupt" ToolTip="删除这个打断键"/>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                        <Button Content="＋ 添加打断键" Click="OnAddInterrupt"/>
-                                        <Button Content="恢复默认（WASD/空格/1234/Tab）" Click="OnResetInterrupts"/>
-                                    </StackPanel>
-                                    <TextBlock x:Name="TxtInterruptWarn" Foreground="#FFD23F" FontSize="12" Margin="0,6,0,0"/>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="输入安全（防止按键/鼠标被卡住）">
-                                <StackPanel>
-                                    <CheckBox x:Name="ChkSuppressMouse" Content="不发送鼠标修饰键（只按白键，绝不碰鼠标）"
-                                              Click="OnInputSafetyChanged"
-                                              ToolTip="勾上后不会按下左/中/右键，代价是升降调失效，只适合全白键的谱子"/>
-                                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0"
-                                               Text="程序只在发键瞬间按住鼠标键，发完立刻松开；停止/急停/退出都会强制松开，另有 250ms 看门狗兜底。"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <Button Content="✋ 立即松开所有按键" Style="{StaticResource DangerButton}" Click="OnPanicRelease"/>
-                                        <Button Content="输入自检（查为什么没反应）" Click="OnInputSelfTest"
-                                                ToolTip="装一个键盘钩子并注入一个测试按键，判断系统是否接受了本程序的模拟输入"/>
-                                        <TextBlock x:Name="TxtInputGuard" VerticalAlignment="Center" FontSize="12" Foreground="#8FA0B5"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="跟谱弹奏（等你按键）">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource Caption}"
-                                               Text="演奏方式选「跟谱弹奏」时生效：程序不发送任何按键，把悬浮窗/主界面当谱面，等你按对当前的音再走下一个。"/>
-                                    <CheckBox x:Name="ChkFollowStrict" Content="严格判定：必须按对琴键（带变调的音还要按住对应鼠标键）"
-                                              Click="OnFollowSettingChanged"/>
-                                    <CheckBox x:Name="ChkFollowHold" Content="要求按住整拍（长音按不够记一次「漏」）"
-                                              Click="OnFollowSettingChanged"/>
-                                    <CheckBox x:Name="ChkFollowErrors" Content="按错时提示并统计"
-                                              Click="OnFollowSettingChanged"/>
-                                    <Grid Margin="0,6,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="110"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="等不到就跳过" VerticalAlignment="Center"/>
-                                        <TextBox x:Name="TxtFollowTimeout" Grid.Column="1" Width="56" TextChanged="OnFollowSettingChanged"/>
-                                        <TextBlock Grid.Column="2" Text="秒（0 = 一直等）" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="#8FA0B5" FontSize="12"/>
-                                    </Grid>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="更新与问题反馈">
-                                <StackPanel>
-                                    <TextBlock x:Name="TxtVersionInfo" FontSize="12" Foreground="#9AA4B5"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                        <TextBlock Text="更新地址" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <TextBox x:Name="TxtUpdateUrl" Width="360" TextChanged="OnUpdateUrlChanged"
-                                                 ToolTip="指向仓库里的 update.json（GitHub raw 地址），留空则不检查"/>
-                                    </StackPanel>
-                                    <WrapPanel Margin="0,8,0,0">
-                                        <Button Content="检查更新" Style="{StaticResource PrimaryButton}" Click="OnCheckUpdate"/>
-                                        <Button Content="打开下载页" Click="OnOpenDownloadPage"/>
-                                        <Button Content="反馈问题（GitHub Issues）" Click="OnOpenIssues"/>
-                                        <Button Content="导出诊断包" Click="OnExportDiagnostics"/>
-                                        <Button Content="打开反馈目录" Click="OnOpenFeedbackDir"/>
-                                    </WrapPanel>
-                                    <TextBlock x:Name="TxtUpdateResult" FontSize="12" Foreground="#FFD23F" Margin="0,8,0,0"/>
-                                    <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0"
-                                               Text="诊断包里只有程序版本、系统信息、键位/悬浮窗设置和最近日志，不含你的曲谱内容；反馈时把它拖进 Issue 即可。"/>
-                                </StackPanel>
-                            </GroupBox>
-
-                            <GroupBox Header="关于">
-                                <StackPanel>
-                                    <TextBlock Text="口琴谱演奏器 HarmoPlay v1.0" FontWeight="SemiBold"/>
-                                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#9AA4B5"
-                                               Text="本地离线版：曲谱库 + 简谱编辑 + 自动演奏 + 悬浮窗键位提示 + 可配置键位映射。"/>
-                                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#9AA4B5"
-                                               Text="兼容「鼠鼠口琴谱」的 library.json 曲谱库，以及三角洲口琴可视化曲谱 / D-hydra 键位谱格式。"/>
-                                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#FFD23F"
-                                               Text="在游戏内使用时，请以管理员身份运行本程序，否则部分游戏会忽略模拟按键。"/>
-                                </StackPanel>
-                            </GroupBox>
-                        </StackPanel>
-                    </Grid>
-                </ScrollViewer>
-            </TabItem>
+            
         </TabControl>
 
         <!-- 状态栏 -->
@@ -630,3 +362,4 @@
         </Border>
     </Grid>
 </Window>
+
