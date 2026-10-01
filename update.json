@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "published": "2026-10-01",
-  "notes": "口琴谱演奏器 v1.0.0：练习模式修正——「等你按对再前进」与「按拍前进」真正区分开（勾选=弹对才走，不勾=按拍自动前进、仍只判定不发送任何按键）；包内新增「解除下载锁定.cmd」用于解决 Windows 下载标记（Internet 安全设置阻止打开）问题。",
+  "notes": "口琴谱演奏器 v1.0.0：修复工具栏「播放 / 暂停」与相邻按钮高度不一致、压到下一排的问题（工具栏统一行高 38px、垂直居中）；练习模式「等你按对再前进 / 按拍前进」区分；包内附「解除下载锁定.cmd」。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "1bebbcfdc3ca473fee9b08a4ffa5bcb0f98da95d730af4fba584d7e28df9a93d"
+  "sha256": "564317fdc4c8e5e806b1abff0fd0495f7d1889b5fbd6b5b78db747b0ed32382e"
 }

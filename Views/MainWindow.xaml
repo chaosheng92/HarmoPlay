@@ -59,7 +59,7 @@
                 <Button DockPanel.Dock="Right" x:Name="BtnSettings" Content="⚙ 设置" VerticalAlignment="Top"
                         Margin="10,0,0,0" Click="OnOpenSettings"
                         ToolTip="二级设置菜单：键位与变调 / 悬浮窗 / 演奏与跟谱 / 打断键 / 输入安全 / 全局热键 / 更新与反馈 / 数据与关于"/>
-                <WrapPanel VerticalAlignment="Center">
+                <WrapPanel VerticalAlignment="Center" ItemHeight="38">
                     <WrapPanel.Resources>
                         <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                             <Setter Property="Margin" Value="0,0,8,8"/>
