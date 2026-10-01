@@ -465,9 +465,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 只有「自动弹奏」（真的发送模拟按键）需要风险确认；跟谱 / 新手模式都不弹
-        if (_lib.Settings.Playback.SimulateKeys && !ConfirmAutoPlay(switching: false))
+        // 只有「下拉确实停在自动弹奏」+「真的会发送模拟按键」时才需要风险确认。
+        // 跟谱 / 新手模式、以及下拉未选中(-1)的情况一律不弹（宁可少问，不要误拦）。
+        if (_lib.Settings.Playback.SimulateKeys
+            && ComboPlayMode.SelectedIndex == 0
+            && !ConfirmAutoPlay(switching: false))
+        {
             ForceFollowMode();
+        }
 
         ParseCurrent(updateEditorPreviewOnly: false);
         if (_parsed == null || _parsed.Notes.Count == 0)

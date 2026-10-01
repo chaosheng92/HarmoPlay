@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "published": "2026-10-01",
-  "notes": "口琴谱演奏器 v1.0.0：修复切「跟谱弹奏 / 新手模式」仍弹自动弹奏风险警告——判断依据改为\"是否真的发送模拟按键\"（只有自动弹奏会），不再用 WaitForInput。",
+  "notes": "口琴谱演奏器 v1.0.0：风险警告只在\"下拉确实选中自动弹奏\"时出现；切换到跟谱弹奏 / 新手模式（含未选中、旧设置残留）都不再弹窗。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "c6fb62f4d516dd532e75b572648c365d7900d8bbb6ef383a28cc7244df45e3aa"
+  "sha256": "54bb0bc0cfeb879568fb65dd9b057737dcef9be2d03a664fe96a15f4e048a55b"
 }
