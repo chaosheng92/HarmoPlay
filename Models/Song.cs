@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using HarmoPlay.Core;
 
 namespace HarmoPlay.Models;
 
@@ -70,7 +71,22 @@ public sealed class HotkeySpec
     public string Modifiers { get; set; } = "";
 
     [JsonIgnore]
-    public string Text => string.IsNullOrWhiteSpace(Modifiers) ? Key : $"{Modifiers}+{Key}";
+    public string Text
+    {
+        get
+        {
+            var key = ScoreParser.PrettyKey(Key);
+            return string.IsNullOrWhiteSpace(Modifiers) ? key : $"{Modifiers}+{key}";
+        }
+    }
+}
+
+/// <summary>键位预设下拉项（ToString 用于下拉框显示，避免出现匿名对象文本）。</summary>
+public sealed class KeyMapChoice
+{
+    public string Id { get; init; } = "";
+    public string Name { get; init; } = "";
+    public override string ToString() => Name;
 }
 
 /// <summary>播放参数。</summary>

@@ -9,6 +9,7 @@
 ![主界面](docs/main-window.png)
 ![悬浮窗 · 经典堆叠](docs/overlay.png)
 ![悬浮窗 · 音游下落](docs/falling.png)
+![键位与设置](docs/settings-tab.png)
 
 ---
 

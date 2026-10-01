@@ -139,11 +139,11 @@ public partial class MainWindow : Window
             _hotkeyRows.Add(new HotkeyRow { Spec = h });
         ListHotkeys.ItemsSource = _hotkeyRows;
 
-        var maps = KeyMap.Presets().Select(m => new { m.Id, m.Name }).ToList();
+        var maps = KeyMap.Presets().Select(m => new KeyMapChoice { Id = m.Id, Name = m.Name }).ToList();
+        maps.Add(new KeyMapChoice { Id = "custom", Name = "自定义映射（键位映射窗口里保存）" });
         ComboKeyMap.ItemsSource = maps;
-        ComboKeyMap.DisplayMemberPath = "Name";
         ComboKeyMap.SelectedValuePath = "Id";
-        ComboKeyMap.SelectedValue = _lib.Settings.KeyMapId == "custom" ? "delta" : _lib.Settings.KeyMapId;
+        ComboKeyMap.SelectedValue = _lib.Settings.KeyMapId;
         if (ComboKeyMap.SelectedIndex < 0) ComboKeyMap.SelectedIndex = 0;
 
         TxtEditHint.Text = "格式：1 2 3 4 5 6 7 8 ｜ #6 半音 ｜ b3 降调 ｜ ^1 升调 ｜ 5 - 延长 ｜ 0 休止 ｜ | 小节线";
@@ -940,7 +940,8 @@ public partial class MainWindow : Window
             _lib.Settings.KeyMapId = dlg.ResultMap.Id;
         }
         _loading = true;
-        ComboKeyMap.SelectedValue = _lib.Settings.KeyMapId == "custom" ? "delta" : _lib.Settings.KeyMapId;
+        ComboKeyMap.SelectedValue = _lib.Settings.KeyMapId;
+        if (ComboKeyMap.SelectedIndex < 0) ComboKeyMap.SelectedIndex = 0;
         _loading = false;
         UpdateKeyMapUi();
         ParseCurrent(updateEditorPreviewOnly: false);

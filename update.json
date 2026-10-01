@@ -1,8 +1,8 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "published": "2026-10-01",
-  "notes": "新增：演奏打断键（WASD/空格/1234切枪/Tab背包，可自定义）与输入安全防护（急停热键 Ctrl+Alt+0、250ms 看门狗、启动清理、可选绝不碰鼠标）；修正固定音高指法；新增音游下落模式、AI 转谱校验 --validate、更新接口与诊断包",
+  "notes": "v1.0.2：新增演奏打断键（WASD/空格/1234切枪/Tab背包，可自定义）与输入安全防护（急停 Ctrl+Alt+0、250ms 看门狗、启动清理、可选绝不碰鼠标）；修正热键与预设下拉显示、固定音高指法；含音游下落模式、AI 转谱校验、更新接口与诊断包",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "e74764138892cb81e2da08854346f53732dc5e46a40c0f2626e5b397cb0faa35"
+  "sha256": "cad11efd12cf6bcf74b74ab8cdfc66522d71342fcd89589ecab71ffd253d6b9f"
 }
