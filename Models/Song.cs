@@ -174,6 +174,8 @@ public static class DefaultHotkeys
     /// <summary>备用快捷键：默认未绑定，留给用户自己设（Alt+H 冲突时可以换这个）。</summary>
     public const string ToggleOverlay2 = "toggleoverlay2";
     public const string LockOverlay = "lockoverlay";
+    /// <summary>从托盘/隐藏状态恢复主窗口（托盘图标不可用时的救急通道）。</summary>
+    public const string ShowMain = "showmain";
     public const string ToggleWait = "togglewait";
     public const string ToggleMode = "togglemode";
     public const string PanicRelease = "panicrelease";
@@ -189,6 +191,7 @@ public static class DefaultHotkeys
         // 默认留空：由用户自己在「设置快捷键」里指定
         new HotkeySpec { Action = ToggleOverlay2, Key = "", Modifiers = "" },
         new HotkeySpec { Action = LockOverlay,   Key = "L",  Modifiers = "Alt" },
+        new HotkeySpec { Action = ShowMain,      Key = "H",  Modifiers = "Alt+Shift" },
         new HotkeySpec { Action = ToggleMode,    Key = "M",  Modifiers = "Alt" },
         new HotkeySpec { Action = ToggleWait,    Key = "T",  Modifiers = "Alt" },
         new HotkeySpec { Action = PanicRelease,  Key = "D0", Modifiers = "Ctrl+Alt" },
@@ -211,6 +214,7 @@ public static class HotkeyActions
         DefaultHotkeys.PrevSong => "上一首",
         DefaultHotkeys.ToggleOverlay => "显示 / 隐藏悬浮窗",
         DefaultHotkeys.ToggleOverlay2 => "显示 / 隐藏悬浮窗（备用快捷键，默认未设置，可自己填）",
+        DefaultHotkeys.ShowMain => "显示主窗口（从后台 / 隐藏状态恢复，默认 Alt+Shift+H）",
         DefaultHotkeys.LockOverlay => "锁定 / 解锁悬浮窗（点击穿透）",
         DefaultHotkeys.ToggleMode => "切换 悬浮窗模式（音游下落 / 经典堆叠）",
         DefaultHotkeys.ToggleWait => "切换 自动演奏 / 跟练模式",

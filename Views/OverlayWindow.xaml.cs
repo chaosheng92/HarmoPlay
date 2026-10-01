@@ -42,16 +42,18 @@ public partial class OverlayWindow : Window
     private bool _dragging;
     private Point _dragOrigin;
     private double _dragStartLeft, _dragStartTop;
+    private bool _dragMoveLogged;
 
     public OverlayWindow()
     {
         InitializeComponent();
         Surface.MouseLeftButtonDown += OnSurfaceMouseDown;
         Root.MouseLeftButtonDown += OnSurfaceMouseDown;        // 整块窗口都能拖
-        Surface.MouseMove += OnDragMove;
-        Root.MouseMove += OnDragMove;
-        Surface.MouseLeftButtonUp += OnDragEnd;
-        Root.MouseLeftButtonUp += OnDragEnd;
+        // 注意：捕获鼠标之后，移动/抬起事件只会发给被捕获的元素（这里是窗口本身），
+        // 所以这两个处理器必须挂在窗口上，挂在 Root/Surface 上会完全收不到（导致"拖不动"）。
+        MouseMove += OnDragMove;
+        MouseLeftButtonUp += OnDragEnd;
+        LostMouseCapture += (_, _) => EndDrag("丢失鼠标捕获");
         Root.ContextMenuOpening += (_, _) => UpdateMenuHeaders();
         MouseWheel += OnWheel;
         LocationChanged += (_, _) => PersistBounds();
@@ -683,3 +685,4 @@ public sealed class OverlayCanvas : FrameworkElement
         }
     }
 }
+

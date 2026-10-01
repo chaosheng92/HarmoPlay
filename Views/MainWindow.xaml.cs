@@ -657,6 +657,9 @@ public partial class MainWindow : Window
             case DefaultHotkeys.ToggleOverlay2:
                 ToggleOverlayVisibility();
                 break;
+            case DefaultHotkeys.ShowMain:
+                ShowMainWindow();
+                break;
             case DefaultHotkeys.LockOverlay:
                 // 以设置为准切换，避免界面/实例状态不同步导致"只能解锁、锁不回去"
                 SetOverlayLocked(!_lib.Settings.Overlay.ClickThrough);
@@ -1196,23 +1199,46 @@ public partial class MainWindow : Window
     private TrayIcon? _tray;
     private bool _reallyExit;
 
-    /// <summary>最小化到右下角托盘：隐藏主窗口，悬浮窗与热键继续工作。</summary>
+    /// <summary>最小化到右下角托盘：隐藏主窗口，悬浮窗与热键继续工作。
+    /// 若托盘图标注册失败（系统策略 / 安全软件 / 沙箱限制），则**不隐藏窗口**并明确告知，
+    /// 避免用户"窗口没了、图标也没有"找不到程序。</summary>
     private void HideToTray()
     {
-        _tray ??= new TrayIcon(
-            "口琴谱演奏器：双击恢复窗口，右键可退出",
-            showWindow: ShowMainWindow,
-            toggleOverlay: ToggleOverlayVisibility,
-            playPause: TogglePlay,
-            stop: () => OnStop(this, new RoutedEventArgs()),
-            about: ShowAboutFromTray,
-            exit: () => { _reallyExit = true; Close(); });
+        if (_tray == null)
+        {
+            var tray = new TrayIcon(
+                "口琴谱演奏器：双击恢复窗口，右键可退出",
+                showWindow: ShowMainWindow,
+                toggleOverlay: ToggleOverlayVisibility,
+                playPause: TogglePlay,
+                stop: () => OnStop(this, new RoutedEventArgs()),
+                about: ShowAboutFromTray,
+                exit: () => { _reallyExit = true; Close(); });
+
+            if (!tray.IsAdded)
+            {
+                tray.Dispose();
+                Program.Trace("托盘：注册失败，放弃隐藏窗口（窗口继续保持显示）");
+                SetStatus("托盘图标注册失败，窗口未隐藏（详见 startup.log）");
+                MessageBox.Show(
+                    "托盘图标注册失败，系统没有接受这个图标。\n\n" +
+                    "为避免窗口收起来后找不到程序，主窗口会继续保持显示。\n\n" +
+                    "你可以：\n" +
+                    "· 用热键 Alt+Shift+H 随时显示主窗口（设置 → 全局热键 可改）\n" +
+                    "· 或在「设置 → 数据与关于 → 点右上角关闭窗口时」改为「直接退出程序」\n" +
+                    "· 若想用托盘：检查安全软件是否拦截，或换一台没装此类软件的环境试试\n\n" +
+                    "详细错误码见程序目录的 startup.log。",
+                    "无法最小化到托盘", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            _tray = tray;
+        }
 
         Hide();
         PersistOverlayBounds();
         LibraryStore.Save(_lib);
         SetStatus("已最小化到右下角托盘（热键仍然可用，双击托盘图标可恢复窗口）");
-        Program.Trace($"已最小化到托盘：主窗口可见={IsVisible}，悬浮窗可见={_overlay?.IsVisible}，托盘图标={_tray != null}");
+        Program.Trace($"已最小化到托盘：主窗口可见={IsVisible}，悬浮窗可见={_overlay?.IsVisible}，托盘图标={_tray.IsAdded}");
         _tray.ShowBalloon("口琴谱演奏器仍在后台运行",
             "双击托盘图标恢复窗口；右键可显示 / 隐藏悬浮窗、播放暂停或退出。");
     }
