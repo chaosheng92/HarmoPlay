@@ -343,6 +343,14 @@ public sealed class OverlayCanvas : FrameworkElement
     private DateTime _flashUntil = DateTime.MinValue;
     private int _lastIndex = -1;
 
+    /// <summary>在指定通道上亮一下"命中"闪光（跟谱/新手模式真的按对时由主窗口调用）。</summary>
+    public void FlashHitLane(int lane)
+    {
+        _flashLane = Math.Clamp(lane, 0, 7);
+        _flashUntil = DateTime.Now.AddMilliseconds(220);
+        InvalidateVisual();
+    }
+
     protected override void OnRender(DrawingContext dc)
     {
         double w = ActualWidth, h = ActualHeight;
@@ -536,11 +544,13 @@ public sealed class OverlayCanvas : FrameworkElement
         int currentIndex = playing ? Playback!.CurrentIndex : CurrentIndex;
         var notation = Score.Notation;
 
-        // 命中闪光：当前音变化时在判定线上亮一下
+        // 命中闪光：自动弹奏时"当前音变化"即闪；跟谱/新手模式由主窗口在真的按对时调用
+        // FlashHitLane —— 否则你没按，下一个音一出现它也会闪，看起来像被判对了。
         if (playing && currentIndex != _lastIndex)
         {
             _lastIndex = currentIndex;
-            if (currentIndex >= 0 && currentIndex < Score.Notes.Count && !Score.Notes[currentIndex].IsRest)
+            if (Playback!.SimulateKeysActive
+                && currentIndex >= 0 && currentIndex < Score.Notes.Count && !Score.Notes[currentIndex].IsRest)
             {
                 _flashLane = Math.Clamp(Score.Notes[currentIndex].Degree, 1, 8) - 1;
                 _flashUntil = DateTime.Now.AddMilliseconds(220);

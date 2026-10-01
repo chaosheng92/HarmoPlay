@@ -136,15 +136,25 @@ public static class InputSender
         SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>());
     }
 
+    /// <summary>
+    /// 测试接缝：非 null 时用它代替真实键盘/鼠标状态。仅供自检开关（如 --followtest）使用，
+    /// 目的是让"跟谱/新手模式的判定逻辑"能在无法注入按键的环境（Low 完整性沙箱）里被确定性测试。
+    /// 正常运行时为 null，行为与以前完全一致。
+    /// </summary>
+    internal static Func<Key, bool>? KeyStateOverride;
+    internal static Func<MouseMod, bool>? MouseStateOverride;
+
     /// <summary>读取按键是否处于按下状态（用于跟练模式）。</summary>
     public static bool IsDown(Key key)
     {
+        if (KeyStateOverride != null) return KeyStateOverride(key);
         int vk = KeyInterop.VirtualKeyFromKey(key);
         return (GetAsyncKeyState(vk) & 0x8000) != 0;
     }
 
     public static bool IsMouseDown(MouseMod mod)
     {
+        if (MouseStateOverride != null) return MouseStateOverride(mod);
         bool ok = true;
         if (mod.HasFlag(MouseMod.Left)) ok &= (GetAsyncKeyState(0x01) & 0x8000) != 0;
         if (mod.HasFlag(MouseMod.Right)) ok &= (GetAsyncKeyState(0x02) & 0x8000) != 0;

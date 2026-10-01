@@ -35,6 +35,14 @@ public sealed class PlaybackEngine : IDisposable
     private Chord _pressed = Chord.Empty;
     private int _inProgress = -1;
 
+    /// <summary>边沿采样：需要盯着的琴键（用来判断"有没有出现一次新的按下"）。</summary>
+    private Key[] _watchKeys = Array.Empty<Key>();
+    private readonly HashSet<Key> _downNow = new();
+    /// <summary>每个琴键最近一次"按下沿"的时间轴时间。</summary>
+    private readonly Dictionary<Key, double> _lastDownMs = new();
+    /// <summary>已经被某个音消费掉的按下沿：同一个按下沿不能把两个音都判对。</summary>
+    private readonly Dictionary<Key, double> _consumedDownMs = new();
+
     /// <summary>保护"按下/松开"这一对操作，避免 UI 线程（停止/暂停）与引擎线程抢着改状态导致按键卡住。</summary>
     private readonly object _inputLock = new();
     private readonly Thread _watchdog;
@@ -137,6 +145,8 @@ public sealed class PlaybackEngine : IDisposable
 
     private bool _freezeTimeline;
     private double _freezeAt;
+    /// <summary>本次「按住整拍」应有的结束时刻（时间轴毫秒）：冻结要精确钉在这里，避免逐音累积偏差。</summary>
+    private double _holdDeadlineMs;
 
     /// <summary>冻住曲谱时间轴（跟谱/新手模式等你按键时用，画面与判定都停住）。</summary>
     private void BeginFreeze(double? at = null)
@@ -179,6 +189,12 @@ public sealed class PlaybackEngine : IDisposable
         _timelineOffsetMs = 0;
         _pressed = Chord.Empty;
         _inProgress = -1;
+        _watchKeys = _map.Keys
+            .Select(n => Enum.TryParse<Key>(n, true, out var k) ? k : Key.None)
+            .Where(k => k != Key.None).ToArray();
+        _downNow.Clear();
+        _lastDownMs.Clear();
+        _consumedDownMs.Clear();
         CurrentIndex = -1;
         CurrentPass = 0;
         ResetFollowStats();
@@ -477,6 +493,11 @@ public sealed class PlaybackEngine : IDisposable
                 }
                 FollowJudged?.Invoke(index, "ok", chord.Detail);
                 Program.Trace($"跟谱完成：第 {index + 1} 个音（你等了 {waited:0} ms）");
+                // ★ 音长已经走完：等你松手的这段时间必须把曲谱冻住。
+                //   否则时间轴继续往前跑，下一个音还没等你按，它的块就已经掉到判定线下面了
+                //   —— 表现就是"音游块下落和按键进度对不上"，而且误差会一个音一个音累积。
+                //   冻结位置钉在"按住整拍"应有的结束时刻上，别用循环退出时晚了几毫秒的位置。
+                BeginFreeze(_options.FollowRequireHold ? _holdDeadlineMs : null);
                 WaitRelease(chord);
                 return true;
             }
@@ -512,21 +533,31 @@ public sealed class PlaybackEngine : IDisposable
     }
 
     /// <summary>
-    /// 练习（只判定不注入）：音符按时间轴自动前进，程序在此期间只读取你的按键，
-    /// 按对 = ok（再按时间差评完美/良好）、按错 = wrong、窗口内没按 = miss。
+    /// 连续判定（跟谱弹奏·连续 / 练习·按拍前进）：音符按时间轴自动前进，程序只读取你的按键。
+    /// 按对 = ok，按错 = wrong，窗口内没按 = miss。
+    /// ★ 判定看"按下沿"：必须出现一次**新的按下**才算这个音（同一个按下沿只消费一次）。
+    ///   所以长按不松手不会把后面同键的音一路判成 ok；提前一点点按下（抢拍）依然有效。
     /// </summary>
     private bool JudgePlay(Chord chord, int index, double endMs)
     {
         Status?.Invoke($"练习：请弹 {chord.Detail}");
         string? lastWrong = null;
+        bool heldWhenEntered = chord.IsKeyHeldByUser();   // 进这个音时就按着 → 大概率是上一个音没松手
 
         while (!_stop)
         {
             if (_pause && !_gate.Wait(20)) continue;
             if (_stop) return false;
 
-            if (chord.IsHeldByUser())
+            SampleKeyEdges();
+
+            bool freshPress = _lastDownMs.TryGetValue(chord.Key, out var downMs)
+                              && (!_consumedDownMs.TryGetValue(chord.Key, out var usedMs) || downMs > usedMs);
+            bool held = _options.FollowStrictKey ? chord.IsHeldByUser() : chord.IsKeyHeldByUser();
+
+            if (held && freshPress)
             {
+                _consumedDownMs[chord.Key] = downMs;   // 这次按下沿归这个音，下个音得再按一次
                 FollowCorrect++;
                 FollowJudged?.Invoke(index, "ok", chord.Detail);
                 return true;
@@ -553,7 +584,7 @@ public sealed class PlaybackEngine : IDisposable
         }
 
         FollowMissed++;
-        FollowJudged?.Invoke(index, "miss", "没按");
+        FollowJudged?.Invoke(index, "miss", heldWhenEntered ? "上一个音没松手（要重新按下）" : "没按");
         return true;
     }
 
@@ -582,11 +613,17 @@ public sealed class PlaybackEngine : IDisposable
         }
     }
 
-    /// <summary>按住整拍判定：按不够就记一次"漏"。</summary>
-    private bool HoldForDuration(ScoreNote note, Chord chord, int index)    {
+    /// <summary>
+    /// 按住整拍判定：按不够就记一次"漏"。
+    /// ★ 时长按曲谱时间轴算（而不是"每次 Sleep(8) 就累加 8ms"）：Sleep 实际总比 8ms 略长，
+    ///   累加出来的时长会持续偏长，每个音都让时间轴多跑几十毫秒、越积越多 ——
+    ///   表现就是音游块相对判定进度越跑越前（对位偏差一路累积）。
+    /// </summary>
+    private bool HoldForDuration(ScoreNote note, Chord chord, int index)
+    {
         double need = Math.Max(120, note.Beats * _beatMs);
-        double held = 0;
-        while (!_stop && held < need)
+        _holdDeadlineMs = PositionMs + need;   // PositionMs 已经扣掉暂停时间
+        while (!_stop && PositionMs < _holdDeadlineMs)
         {
             if (_pause && !_gate.Wait(50)) continue;
             if (!chord.IsKeyHeldByUser())
@@ -601,7 +638,6 @@ public sealed class PlaybackEngine : IDisposable
                 return !_options.BeginnerMode;
             }
             Thread.Sleep(8);
-            held += 8;
         }
         FollowJudged?.Invoke(index, "hold", $"{need:0} 毫秒");
         return true;
@@ -641,12 +677,38 @@ public sealed class PlaybackEngine : IDisposable
             {
                 if (!_gate.Wait(100)) continue;
             }
+            SampleKeyEdges();
             double now = _watch.Elapsed.TotalMilliseconds - _timelineOffsetMs - _pauseOffsetMs;
             double remain = targetMs - now;
             if (remain <= 0) return true;
             if (remain > 16) Thread.Sleep(5);
             else if (remain > 2) Thread.Sleep(1);
             else Thread.SpinWait(150);
+        }
+    }
+
+    /// <summary>时间轴上的当前毫秒数（与 PositionMs 同源，但不做"冻结"处理）。</summary>
+    private double RawNowMs => _watch.Elapsed.TotalMilliseconds - _timelineOffsetMs - _pauseOffsetMs;
+
+    /// <summary>
+    /// 边沿采样：记录每个琴键最近一次"按下"的时刻。
+    /// "每个音都要重新按一次"就靠它 —— 一直按着不放不会产生新的按下沿，所以后面同键的音
+    /// 不会被判对；而"提前一点点按下"（正常抢拍）仍然算这个音的一次有效按下。
+    /// </summary>
+    private void SampleKeyEdges()
+    {
+        if (_watchKeys.Length == 0) return;
+        double now = RawNowMs;
+        foreach (var key in _watchKeys)
+        {
+            if (InputSender.IsDown(key))
+            {
+                if (_downNow.Add(key)) _lastDownMs[key] = now;   // 检测到一次新的按下
+            }
+            else
+            {
+                _downNow.Remove(key);
+            }
         }
     }
 

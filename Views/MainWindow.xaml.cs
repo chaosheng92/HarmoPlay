@@ -146,6 +146,18 @@ public partial class MainWindow : Window
             Dispatcher.InvokeAsync(() => RunPracticeTest(mode), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
         }
 
+        // --modetest [auto]：模拟"用户切换演奏方式"，验证跟谱/新手不会弹自动弹奏风险窗、新手模式能停住
+        int mti = Array.FindIndex(argv, a => a.Equals("--modetest", StringComparison.OrdinalIgnoreCase));
+        if (mti >= 0)
+        {
+            bool withAuto = mti + 1 < argv.Length && argv[mti + 1].Equals("auto", StringComparison.OrdinalIgnoreCase);
+            Dispatcher.InvokeAsync(() => RunModeTest(withAuto), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+
+        // --followtest：验证"每个音都要重新按一次"（长按不松手不应把下一个音也判对）
+        if (argv.Any(a => a.Equals("--followtest", StringComparison.OrdinalIgnoreCase)))
+            Dispatcher.InvokeAsync(RunFollowTest, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
         // --settings：启动后直接打开二级设置菜单
         int si = Array.FindIndex(argv, a => a.Equals("--settings", StringComparison.OrdinalIgnoreCase));
         if (si >= 0)
@@ -235,12 +247,14 @@ public partial class MainWindow : Window
     /// <summary>用户不同意自动弹奏时，切回跟谱弹奏。</summary>
     private void ForceFollowMode()
     {
+        var p = _lib.Settings.Playback;
+        p.WaitForInput = true;
+        p.BeginnerMode = false;
+        p.SimulateKeys = false;   // ★ 用户拒绝自动弹奏后必须落到「不注入按键」的安全状态
         _loading = true;
-        SetPlayModeIndex(1);
+        SetPlayModeIndex(CurrentModeIndex);
         _loading = false;
-        _lib.Settings.Playback.WaitForInput = true;
-        _lib.Settings.Playback.BeginnerMode = false;
-        TxtPlayMode.Text = _lib.Settings.Playback.ModeText;
+        TxtPlayMode.Text = p.ModeText;
         LibraryStore.Save(_lib);
         RefreshFollowStats();
     }
@@ -256,9 +270,7 @@ public partial class MainWindow : Window
         TxtBpm.Text = "";
         SldSpeed.Value = Math.Clamp(p.Speed, 0.2, 2.0);
         ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（连续判定）", "新手模式（按对才继续，永不跳过）" };
-        _settingModeIndex = true;
-        SetPlayModeIndex(p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0);
-        _settingModeIndex = false;
+        SetPlayModeIndex(CurrentModeIndex);
         ComboOverlayModeBar.ItemsSource = new[] { "经典堆叠", "音游下落" };
         ComboOverlayModeBar.SelectedIndex = _lib.Settings.Overlay.Mode == 1 ? 1 : 0;
         TxtSpeed.Text = p.Speed.ToString("0.00") + "x";
@@ -268,9 +280,9 @@ public partial class MainWindow : Window
         TxtRepeat.Text = p.RepeatTimes.ToString();
         ChkLegato.IsChecked = p.LegatoSameKey;
 
-        // 演奏方式（注意：这里只设置一次；重复设置 ItemsSource 会冲掉选中项并
-        // 触发假的 SelectionChanged，被误判成"用户选了自动弹奏"而弹风险窗）
-        SetPlayModeIndex(p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0);
+        // 演奏方式：状态 → 下拉框的唯一映射走 CurrentModeIndex（这里只设置一次；
+        // 重复设置 ItemsSource 会冲掉选中项并触发假的 SelectionChanged）
+        SetPlayModeIndex(CurrentModeIndex);
         TxtPlayMode.Text = p.ModeText;
 
 
@@ -548,7 +560,7 @@ public partial class MainWindow : Window
         BtnPlay.Content = _engine.IsRunning
             ? (_engine.IsPaused ? "▶ 继续" : "⏸ 暂停")
             : "▶ 播放 / 暂停";
-        SetPlayModeIndex(_lib.Settings.Playback.WaitForInput ? 1 : 0);
+        SetPlayModeIndex(CurrentModeIndex);
         TxtPlayMode.Text = _lib.Settings.Playback.ModeText;
     }
 
@@ -558,8 +570,10 @@ public partial class MainWindow : Window
         var note = _parsed.Notes[index];
         var chord = Chord.Resolve(note, _lib.EffectiveKeyMap, _parsed.Notation);
 
-        // 连击：自动弹奏按音符数累加；跟谱弹奏按"按对"累加（按错/漏掉会清零）
-        if (!note.IsRest)
+        // 连击：自动弹奏按"音符数"累加（程序自己在弹）；
+        // 跟谱/新手模式必须按"真的按对"累加（在 OnFollowJudged 里），
+        // 否则长按不松手时下一个音一出现，连击就涨了 —— 看起来像被判对了。
+        if (!note.IsRest && _lib.Settings.Playback.SimulateKeys)
         {
             _combo++;
             if (_overlay != null) _overlay.Canvas.Combo = _combo;
@@ -625,10 +639,26 @@ public partial class MainWindow : Window
     /// <summary>程序最近一次设置的索引：只忽略这一个"回声"事件，不会有残留状态。</summary>
     private int _lastProgrammaticIndex = -1;
 
+    /// <summary>
+    /// 当前演奏参数 → 下拉框索引的**唯一**映射：
+    ///   2 = 新手模式（BeginnerMode）／0 = 自动弹奏（SimulateKeys）／1 = 跟谱弹奏（其余）。
+    /// 以前这里写成 `WaitForInput ? 1 : 0`，丢掉了「跟谱弹奏(连续)」和「新手模式」两种状态，
+    /// 程序每次回写下拉框都会把界面改成"自动弹奏"，进而被当成用户操作弹出风险确认窗。
+    /// </summary>
+    private int CurrentModeIndex
+    {
+        get
+        {
+            var p = _lib.Settings.Playback;
+            return p.BeginnerMode ? 2 : p.SimulateKeys ? 0 : 1;
+        }
+    }
+
     /// <summary>程序设置"演奏方式"下拉的唯一入口：屏蔽由此产生的 SelectionChanged（假事件）。</summary>
     private void SetPlayModeIndex(int index)
     {
         _settingModeIndex = true;
+        _lastProgrammaticIndex = index;   // 双重保险：回调若被异步派发，也能认出是自己写的
         try { ComboPlayMode.SelectedIndex = index; }
         finally { _settingModeIndex = false; }
     }
@@ -636,9 +666,12 @@ public partial class MainWindow : Window
     private void OnPlayModeChanged(object sender, SelectionChangedEventArgs e)
     {
         // 程序自己改索引（初始化 / 刷新 / 回退）时不算用户操作，直接忽略
-        if (_loading) return;
+        if (_loading || _settingModeIndex) return;
         int index = ComboPlayMode.SelectedIndex;
-        if (index == _lastProgrammaticIndex) { _lastProgrammaticIndex = -1; return; }   // 程序设置的回声
+        // 程序赋值的同步回声已被上面的标志挡掉；这里再兜一层异步回声，然后清空记录，
+        // 否则用户之后真正选到同一个索引时会被误当成回声吞掉。
+        if (index == _lastProgrammaticIndex) { _lastProgrammaticIndex = -1; return; }
+        _lastProgrammaticIndex = -1;
         Program.Trace($"演奏方式切换：index={index} text=\"{ComboPlayMode.SelectedItem as string}\"");
         // 没选中（-1）什么都不做：以前被 Math.Clamp 成 0（自动弹奏），于是会弹风险警告，
         // 拒绝后又把人踢回跟谱 → 表现为"切不到新手模式"。
@@ -698,10 +731,191 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// --modetest：模拟"用户在下拉框里选演奏方式"（等价于点选：直接改 SelectedIndex），
+    /// 验证 ① 切跟谱/新手不会弹自动弹奏风险窗 ② 新手模式能停住（不被回写成自动/跟谱）
+    /// ③ 每种方式的注入开关正确。结果写 startup.log，日志里可搜 MODETEST。
+    /// </summary>
+    private void RunModeTest(bool withAuto)
+    {
+        var seq = withAuto ? new[] { 1, 2, 1, 2, 0, 1 } : new[] { 1, 2, 1, 2 };
+        Program.Trace($"MODETEST 开始（{(withAuto ? "含自动弹奏" : "仅跟谱/新手")}）");
+        foreach (var idx in seq)
+        {
+            ComboPlayMode.SelectedIndex = idx;
+            var p = _lib.Settings.Playback;
+            Program.Trace($"MODETEST 选择 {idx} → 下拉={ComboPlayMode.SelectedIndex}"
+                          + (ComboPlayMode.SelectedIndex == idx ? "（保持）" : "（被改回！）")
+                          + $" 新手={p.BeginnerMode} 等按键={p.WaitForInput} 注入={p.SimulateKeys} 文案=\"{TxtPlayMode.Text}\"");
+        }
+        Program.Trace("MODETEST 结束（除非带 auto，日志里不应出现「风险确认：弹出自动弹奏确认窗口」）");
+        _reallyExit = true;
+        Close();
+    }
+
+    /// <summary>--followtest 用：模拟"F13 是否被按住"（沙箱里无法注入真实按键）。</summary>
+    private volatile bool _testKeyDown;
+
+    /// <summary>
+    /// --followtest：不注入真实按键（沙箱里会被系统丢弃），改用 InputSender.KeyStateOverride
+    /// 模拟"按住 F13 不放"，跑几个判定场景，验证「不松手时下一个音绝不能判对」这条规则。
+    /// </summary>
+    private void RunFollowTest()
+    {
+        var map = KeyMap.CreateDelta();
+        map.Keys[0] = "F13";
+        map.Keys[1] = "F14";
+
+        InputSender.KeyStateOverride = k => k == Key.F13 && _testKeyDown;
+        InputSender.MouseStateOverride = _ => false;
+
+        var scenarios = new (string Tag, PlaybackOptions Opt)[]
+        {
+            ("新手模式", new PlaybackOptions { WaitForInput = true, BeginnerMode = true, SimulateKeys = false, FollowStrictKey = true, FollowRequireHold = true }),
+            ("跟谱弹奏（连续）", new PlaybackOptions { WaitForInput = false, BeginnerMode = false, SimulateKeys = false, FollowStrictKey = true, FollowRequireHold = false }),
+            ("练习·等你按对再前进", new PlaybackOptions { WaitForInput = true, BeginnerMode = false, SimulateKeys = false, FollowStrictKey = true, FollowRequireHold = false }),
+            ("练习·按拍前进", new PlaybackOptions { WaitForInput = false, BeginnerMode = false, SimulateKeys = false, FollowStrictKey = true, FollowRequireHold = false }),
+        };
+
+        // 两个同键音（1 拍 / 2 拍两档，2 拍用来覆盖"长按"）@120BPM
+        var scores = new (string Tag, double Beats)[] { ("1拍音", 1), ("2拍长音", 2) };
+
+        new System.Threading.Thread(() =>
+        {
+            foreach (var (scoreTag, beats) in scores)
+            {
+                var parsed = ScoreParser.Parse($"1:{beats} 1:{beats}", "按键自检", 120, NotationKind.Pitch);
+                int noteMs = (int)(beats * 500);            // 120BPM → 1 拍 = 500ms
+                int tCheck = noteMs + 400, tUp = noteMs + 500, tRepress = noteMs + 800, tEnd = noteMs * 2 + 1400;
+
+                foreach (var (tag, opt) in scenarios)
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    var log = new List<string>();
+                    void OnJudged(int i, string v, string d) => log.Add($"音{i + 1}={v}@{sw.ElapsedMilliseconds}ms");
+                    void OnStarted(int i) => log.Add($"(音{i + 1}开始@{sw.ElapsedMilliseconds}ms)");
+                    _engine.FollowJudged += OnJudged;
+                    _engine.NoteStarted += OnStarted;
+
+                    var o = opt.Clone();
+                    o.Speed = 1; o.CountdownSeconds = 0; o.LeadMs = 0; o.GapMs = 0;
+                    o.RepeatTimes = 1; o.LegatoSameKey = false; o.FollowCountErrors = false;
+                    o.FollowTimeoutSeconds = 0;
+
+                    _testKeyDown = false;
+                    Program.Trace($"FOLLOWTEST ==== 场景：{tag} ／ {scoreTag} ====");
+                    _engine.Play(parsed.Notes, map, NotationKind.Pitch, 120, o);
+
+                    void At(int ms) { while (sw.ElapsedMilliseconds < ms) System.Threading.Thread.Sleep(5); }
+                    At(100); _testKeyDown = true; Program.Trace($"FOLLOWTEST [{sw.ElapsedMilliseconds,5}ms] ↓ 按住 F13 不放");
+                    At(tCheck); Program.Trace($"FOLLOWTEST [{sw.ElapsedMilliseconds,5}ms] 仍然按住 → 此时判定：{string.Join(" ", log)}");
+                    At(tUp); _testKeyDown = false;
+                    At(tRepress); _testKeyDown = true; Program.Trace($"FOLLOWTEST [{sw.ElapsedMilliseconds,5}ms] ↓ 为第 2 个音重新按下 F13");
+                    At(tEnd); _testKeyDown = false;
+                    At(tEnd + 300);
+                    Program.Trace($"FOLLOWTEST 场景「{tag} ／ {scoreTag}」结果：{string.Join(" ", log)} ｜ 按对={_engine.FollowCorrect} 按错={_engine.FollowWrong} 错过={_engine.FollowMissed}");
+
+                    _engine.FollowJudged -= OnJudged;
+                    _engine.NoteStarted -= OnStarted;
+                    _engine.Stop();
+                    System.Threading.Thread.Sleep(150);
+                }
+            }
+
+            // 反向测试：提前 80ms 抢拍（按下沿落在音符窗口之前）也必须算对这个音
+            {
+                var parsed2 = ScoreParser.Parse("1:1 1:1", "按键自检", 120, NotationKind.Pitch);
+                var sw2 = System.Diagnostics.Stopwatch.StartNew();
+                var log2 = new List<string>();
+                void OnJudged2(int i, string v, string d) => log2.Add($"音{i + 1}={v}@{sw2.ElapsedMilliseconds}ms");
+                _engine.FollowJudged += OnJudged2;
+                var o2 = new PlaybackOptions
+                {
+                    Speed = 1, CountdownSeconds = 0, LeadMs = 0, GapMs = 0, RepeatTimes = 1,
+                    WaitForInput = false, BeginnerMode = false, SimulateKeys = false,
+                    FollowStrictKey = true, FollowCountErrors = false, FollowTimeoutSeconds = 0,
+                };
+                _testKeyDown = false;
+                Program.Trace("FOLLOWTEST ==== 场景：抢拍（第 2 个音提前 80ms 按下） ====");
+                _engine.Play(parsed2.Notes, map, NotationKind.Pitch, 120, o2);
+                void At2(int ms) { while (sw2.ElapsedMilliseconds < ms) System.Threading.Thread.Sleep(5); }
+                At2(100); _testKeyDown = true;    // 第 1 个音正常按下
+                At2(200); _testKeyDown = false;   // 松开
+                At2(420); _testKeyDown = true;    // 第 2 个音（500ms 开始）提前 80ms 按下
+                At2(1000); _testKeyDown = false;
+                At2(1200);
+                Program.Trace($"FOLLOWTEST 场景「抢拍」结果：{string.Join(" ", log2)}（期望：两个音都 ok）");
+                _engine.FollowJudged -= OnJudged2;
+                _engine.Stop();
+                System.Threading.Thread.Sleep(150);
+            }
+
+            // 对位检查：新手模式下，每个音"开始判定"时时间轴是否正好停在该音的起点上
+            // （对不上 = 音游块已经掉到判定线下面了，程序却还等你按这个音）
+            {
+                var parsed3 = ScoreParser.Parse("1:1 1:1 1:1 1:1", "对位自检", 120, NotationKind.Pitch);
+                const double beatMs3 = 500;
+                var sw3 = System.Diagnostics.Stopwatch.StartNew();
+                void OnStarted3(int i)
+                {
+                    double expected = parsed3.Notes[i].StartBeat * beatMs3;
+                    double pos = _engine.PositionMs;
+                    Program.Trace($"FOLLOWTEST 对位：音{i + 1} 应在 {expected:0}ms，开始判定时时间轴={pos:0}ms，偏差={pos - expected:+0;-0;0}ms");
+                }
+                _engine.NoteStarted += OnStarted3;
+                var o3 = new PlaybackOptions
+                {
+                    Speed = 1, CountdownSeconds = 0, LeadMs = 0, GapMs = 0, RepeatTimes = 1,
+                    WaitForInput = true, BeginnerMode = true, SimulateKeys = false,
+                    FollowStrictKey = true, FollowRequireHold = true, FollowCountErrors = false,
+                    FollowTimeoutSeconds = 0,
+                };
+                _testKeyDown = false;
+                Program.Trace("FOLLOWTEST ==== 场景：对位检查（新手模式，每次松手都拖 200ms 才放开） ====");
+                _engine.Play(parsed3.Notes, map, NotationKind.Pitch, 120, o3);
+
+                // 每轮：按下 → 按住整拍 → 松手（松手动作故意慢 200ms，模拟真人）
+                var plan = new (int At, bool Down, string Tag)[]
+                {
+                    (100, true, "按1"), (700, false, "松1"),
+                    (900, true, "按2"), (1500, false, "松2"),
+                    (1700, true, "按3"), (2300, false, "松3"),
+                    (2500, true, "按4"), (3100, false, "松4"),
+                };
+                foreach (var step in plan)
+                {
+                    while (sw3.ElapsedMilliseconds < step.At) System.Threading.Thread.Sleep(5);
+                    _testKeyDown = step.Down;
+                }
+                System.Threading.Thread.Sleep(400);
+                Program.Trace("FOLLOWTEST 对位检查结束（偏差应接近 0ms）");
+                _engine.NoteStarted -= OnStarted3;
+                _engine.Stop();
+                System.Threading.Thread.Sleep(150);
+            }
+
+            InputSender.KeyStateOverride = null;
+            InputSender.MouseStateOverride = null;
+            Program.Trace("FOLLOWTEST 全部结束（正确标准：'仍然按住'那一行里，第 2 个音不应出现 ok）");            Dispatcher.InvokeAsync(() => { _reallyExit = true; Close(); });
+        })
+        { IsBackground = true }.Start();
+    }
+
         private void OnFollowJudged(int index, string verdict, string detail)
     {
         RefreshFollowStats();
-        if (verdict is "wrong" or "miss")
+        if (verdict is "ok" or "hold")
+        {
+            // 跟谱/新手模式：只有真的按对（按住整拍）才涨连击、才闪命中
+            _combo++;
+            if (_overlay != null)
+            {
+                _overlay.Canvas.Combo = _combo;
+                if (_parsed != null && index >= 0 && index < _parsed.Notes.Count)
+                    _overlay.Canvas.FlashHitLane(Math.Clamp(_parsed.Notes[index].Degree, 1, 8) - 1);
+            }
+        }
+        else if (verdict is "wrong" or "miss")
         {
             _combo = 0;
             if (_overlay != null) _overlay.Canvas.Combo = 0;
