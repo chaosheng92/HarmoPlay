@@ -256,7 +256,9 @@ public partial class MainWindow : Window
         TxtBpm.Text = "";
         SldSpeed.Value = Math.Clamp(p.Speed, 0.2, 2.0);
         ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（连续判定）", "新手模式（按对才继续，永不跳过）" };
+        _settingModeIndex = true;
         ComboPlayMode.SelectedIndex = p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0;
+        _settingModeIndex = false;
         ComboOverlayModeBar.ItemsSource = new[] { "经典堆叠", "音游下落" };
         ComboOverlayModeBar.SelectedIndex = _lib.Settings.Overlay.Mode == 1 ? 1 : 0;
         TxtSpeed.Text = p.Speed.ToString("0.00") + "x";
@@ -266,8 +268,8 @@ public partial class MainWindow : Window
         TxtRepeat.Text = p.RepeatTimes.ToString();
         ChkLegato.IsChecked = p.LegatoSameKey;
 
-        // 演奏方式：自动弹奏 / 跟谱弹奏
-        ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（连续判定）", "新手模式（按对才继续，永不跳过）" };
+        // 演奏方式（注意：这里只设置一次；重复设置 ItemsSource 会冲掉选中项并
+        // 触发假的 SelectionChanged，被误判成"用户选了自动弹奏"而弹风险窗）
         ComboPlayMode.SelectedIndex = p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0;
         TxtPlayMode.Text = p.ModeText;
 
@@ -618,9 +620,13 @@ public partial class MainWindow : Window
         _lib.Settings.Playback = BuildOptions();
     }
 
+    /// <summary>true = 正在由程序设置"演奏方式"下拉（忽略由此产生的 SelectionChanged）。</summary>
+    private bool _settingModeIndex;
+
     private void OnPlayModeChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_loading) return;
+        // 程序自己改索引（初始化 / 刷新 / 回退）时不算用户操作，直接忽略
+        if (_loading || _settingModeIndex) return;
         int index = ComboPlayMode.SelectedIndex;
         Program.Trace($"演奏方式切换：index={index} text=\"{ComboPlayMode.SelectedItem as string}\"");
         // 没选中（-1）什么都不做：以前被 Math.Clamp 成 0（自动弹奏），于是会弹风险警告，
@@ -1547,6 +1553,8 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
+
 
 
 
