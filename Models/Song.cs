@@ -130,7 +130,11 @@ public sealed class PlaybackOptions
     public bool SuppressMouseModifiers { get; set; }
 
     [JsonIgnore]
-    public string ModeText => !SimulateKeys ? "练习判定" : BeginnerMode ? "新手模式" : WaitForInput ? "跟谱弹奏" : "自动弹奏";
+    public string ModeText =>
+        BeginnerMode ? "新手模式（按对才继续）"
+        : WaitForInput ? "跟谱弹奏"
+        : !SimulateKeys ? "跟谱弹奏（连续判定）"
+        : "自动弹奏";
 
     public PlaybackOptions Clone() => (PlaybackOptions)MemberwiseClone();
 }

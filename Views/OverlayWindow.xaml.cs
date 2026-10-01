@@ -386,6 +386,7 @@ public sealed class OverlayCanvas : FrameworkElement
             null => "自动",
             { BeginnerModeActive: true } => "新手",
             { FollowMode: true } => "跟谱",
+            { SimulateKeysActive: false } => "跟谱",
             _ => "自动",
         };
         var index = Playback is { IsRunning: true } ? Playback.CurrentIndex : CurrentIndex;

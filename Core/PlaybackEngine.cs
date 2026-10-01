@@ -107,6 +107,8 @@ public sealed class PlaybackEngine : IDisposable
     public bool FollowMode => _options.WaitForInput;
     /// <summary>是否处于新手模式（按对才继续、永不跳过）。</summary>
     public bool BeginnerModeActive => _options.BeginnerMode;
+    /// <summary>当前是否真的发送模拟按键（false = 只读键判定：连续跟谱 / 新手模式）。</summary>
+    public bool SimulateKeysActive => _options.SimulateKeys;
     /// <summary>开播倒计时剩余秒数（0 = 没在倒计时），供悬浮窗显示大字。</summary>
     public int CountdownValue { get; private set; }
     /// <summary>一拍多少毫秒（已计入速度倍率），供悬浮窗下落模式换算坐标。</summary>
