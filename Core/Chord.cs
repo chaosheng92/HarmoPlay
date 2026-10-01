@@ -84,13 +84,15 @@ public sealed class Chord
         return notation == NotationKind.Pitch ? ResolvePitch(note, map) : ResolvePhysical(note, map);
     }
 
-    /// <summary>固定音高记谱：算目标音高，再按规格表自动选指法。</summary>
+    /// <summary>固定音高记谱：算目标音高，再按规格表自动选指法（会避开游戏按不出的组合）。</summary>
     private static Chord ResolvePitch(ScoreNote note, KeyMap map)
     {
         if (!PitchFingering.TryToMidi(note.Degree, note.Mods, note.Octave, out var midi, out var error))
             return new Chord { Key = Key.None, Unplayable = true, Error = error, Color = "#FF5A5A", ModLabel = "超音域" };
 
-        var (key, mouse, _) = PitchFingering.FingeringFor(midi, map);
+        if (!PitchFingering.TryFingering(midi, map, out var key, out var mouse, out var fingeringError))
+            return new Chord { Key = Key.None, Unplayable = true, Error = fingeringError, Midi = midi, Color = "#FF5A5A", ModLabel = "弹不出" };
+
         return new Chord
         {
             Key = key,

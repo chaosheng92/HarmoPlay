@@ -119,6 +119,12 @@ public static class LibraryStore
         }
 
         lib.Settings.Hotkeys ??= DefaultHotkeys.CreateDefaults();
+        // 版本升级后补齐新增的热键条目（已存在的保持用户设置）
+        foreach (var def in DefaultHotkeys.CreateDefaults())
+        {
+            if (lib.Settings.Hotkeys.All(h => !string.Equals(h.Action, def.Action, StringComparison.Ordinal)))
+                lib.Settings.Hotkeys.Add(def);
+        }
         lib.Settings.Overlay ??= new OverlaySettings();
         lib.Settings.Playback ??= new PlaybackOptions();
         lib.Settings.CustomKeyMap ??= KeyMap.CreateDelta();

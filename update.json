@@ -1,8 +1,8 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "published": "2026-10-01",
-  "notes": "v1.2.0：悬浮窗位置任意拖动（橙色拖动条 + 右键菜单 + X/Y 微调 + 居中，Alt+L 解锁）；音游下落模式设为默认并放到工具栏一键切换（Alt+M），新增连击数与命中闪光；发布包附「首次运行说明.txt」（SmartScreen 提示）与「输入自检.cmd」；打包脚本与 GitHub Actions 支持可选代码签名",
+  "notes": "v1.3.0：新增「显示/隐藏悬浮窗」备用快捷键槽（默认留空，位置由你自己设：设置→悬浮窗→设置备用快捷键…，也可清除）；热键录制窗口支持「清除绑定」；旧配置升级后自动补齐新热键。另含 v1.2.2 更正：组合键（中键+左/右键）可用但人手难按，程序默认优先选不需要组合的指法，--validate 会提醒需要组合的音",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "36e2a170c6ac0e541377feaf6dec157c2156d311fba9936e88788d08a9ad00f5"
+  "sha256": "08795ddb160b58d4e865d8d64677ba7fbbf86f1aa7eb457996299bd92b4d7805"
 }

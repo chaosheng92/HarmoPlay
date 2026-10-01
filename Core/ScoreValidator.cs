@@ -167,12 +167,15 @@ public static class ScoreValidator
 
         var bars = new List<double> { 0 };
         var barNoteCount = new List<int> { 0 };
-        int noteCount = 0, restCount = 0, unplayable = 0;
+        int noteCount = 0, restCount = 0, unplayable = 0, comboBlocked = 0, needsCombo = 0;
         double totalBeats = 0;
         int minMidi = int.MaxValue, maxMidi = int.MinValue;
         var usesMiddle = false;
         var usesOctave = false;
         var problems = new List<string>();
+        var blockedSamples = new List<string>();
+        var comboSamples = new List<string>();
+        var deltaMap = KeyMap.CreateDelta();   // 按三角洲口琴 8 键的实际键位判断
 
         foreach (var token in tokens)
         {
@@ -214,11 +217,24 @@ public static class ScoreValidator
 
             if (PitchFingering.TryToMidi(deg, mods, octave, out var midi, out var error))
             {
+                if (!PitchFingering.TryFingering(midi, deltaMap, out _, out var mouse, out var fingeringError))
+                {
+                    comboBlocked++;
+                    if (blockedSamples.Count < 8)
+                        blockedSamples.Add($"「{token}」={PitchFingering.NoteName(midi)}");
+                    continue;
+                }
+
                 minMidi = Math.Min(minMidi, midi);
                 maxMidi = Math.Max(maxMidi, midi);
-                var (_, mouse, _) = PitchFingering.FingeringFor(midi, KeyMap.CreateDelta());
                 if (mouse.HasFlag(MouseMod.Middle)) usesMiddle = true;
                 if (mouse.HasFlag(MouseMod.Left) || mouse.HasFlag(MouseMod.Right)) usesOctave = true;
+                if (PitchFingering.IsMouseCombo(mouse))
+                {
+                    needsCombo++;
+                    if (comboSamples.Count < 8)
+                        comboSamples.Add($"「{token}」={PitchFingering.NoteName(midi)}");
+                }
             }
             else
             {
@@ -264,6 +280,28 @@ public static class ScoreValidator
         if (minMidi != int.MaxValue)
             report.Infos.Add($"音域 {PitchFingering.NoteName(minMidi)} ~ {PitchFingering.NoteName(maxMidi)}（MIDI {minMidi}~{maxMidi}，允许 48~84）");
         report.Infos.Add($"指法：{(usesMiddle ? "需要中键" : "不需要中键")}、{(usesOctave ? "需要左/右键八度" : "不需要八度键")}");
+        if (comboBlocked > 0)
+        {
+            report.Warnings.Add(
+                $"有 {comboBlocked} 个音需要「中键 + 左/右键」同时按，而当前键位设置不允许组合键，游戏里弹不出这些音：" +
+                string.Join("、", blockedSamples) + (comboBlocked > blockedSamples.Count ? " …" : ""));
+            report.Warnings.Add("处理办法：把这段旋律整体移调，或在「键位映射」里勾上「允许中键+左键/右键同时按」。");
+        }
+
+        if (needsCombo > 0)
+        {
+            report.Warnings.Add(
+                $"有 {needsCombo} 个音必须同时按住鼠标组合键（技术上传得出来，但人手很难做到，" +
+                "自动弹奏没问题、自己跟谱弹奏基本按不了）：" +
+                string.Join("、", comboSamples) + (needsCombo > comboSamples.Count ? " …" : ""));
+            report.Warnings.Add("建议：把这段旋律移调到中音区（C4~B4 的黑键只需按住中键，不需要组合），或改用相邻自然音。");
+        }
+
+        var playableCount = PitchFingering.PlayablePitches(KeyMap.CreateDelta()).Count;
+        report.Infos.Add(comboBlocked > 0
+            ? $"键位可演奏性：C3~C6 共 37 个半音中可演奏 {playableCount} 个（其余需要组合键，而组合键已被关闭）。"
+            : $"键位可演奏性：C3~C6 共 37 个半音全部可演奏" + (needsCombo > 0 ? $"（其中 {needsCombo} 个需要鼠标组合键）" : "（都不需要组合键）") + "。");
+
         if (unplayable > 0) report.Error($"有 {unplayable} 个音超出 C3~C6，必须整体移调后再交付。");
     }
 }

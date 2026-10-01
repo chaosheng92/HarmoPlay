@@ -45,7 +45,15 @@ public partial class KeyMapWindow : Window
         if (ComboPreset.SelectedIndex < 0) ComboPreset.SelectedIndex = 0;
 
         Build(source);
+        ChkAllowCombos.IsChecked = source.AllowMouseCombos;
+        ChkPreferSimple.IsChecked = source.PreferSimpleFingering;
         _building = false;
+    }
+
+    private void OnAllowCombosChanged(object sender, RoutedEventArgs e)
+    {
+        if (_building) return;
+        _edited = true;
     }
 
     public KeyMap ResultMap { get; private set; } = KeyMap.CreateDelta();
@@ -61,15 +69,21 @@ public partial class KeyMapWindow : Window
     private void OnPresetChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_building) return;
-        Build(CurrentPreset());
+        var p = CurrentPreset();
+        Build(p);
+        ChkAllowCombos.IsChecked = p.AllowMouseCombos;
+        ChkPreferSimple.IsChecked = p.PreferSimpleFingering;
         _edited = true;
     }
 
     private void OnReloadPreset(object sender, RoutedEventArgs e)
     {
-        Build(CurrentPreset());
+        var p = CurrentPreset();
+        Build(p);
+        ChkAllowCombos.IsChecked = p.AllowMouseCombos;
+        ChkPreferSimple.IsChecked = p.PreferSimpleFingering;
         _edited = true;
-        TxtNote.Text = CurrentPreset().Note;
+        TxtNote.Text = p.Note;
     }
 
     private void Build(KeyMap map)
@@ -210,7 +224,13 @@ public partial class KeyMapWindow : Window
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
-        var map = new KeyMap { Id = "custom", Name = "自定义映射" };
+        var map = new KeyMap
+        {
+            Id = "custom",
+            Name = "自定义映射",
+            AllowMouseCombos = ChkAllowCombos.IsChecked == true,
+            PreferSimpleFingering = ChkPreferSimple.IsChecked == true,
+        };
         var bad = new List<string>();
 
         for (int i = 0; i < _keyRows.Count; i++)

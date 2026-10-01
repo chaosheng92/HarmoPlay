@@ -410,7 +410,9 @@ public static class ScoreParser
                 var label = n.IsRest ? "0" : KeyMap.Normalize(n.Mods) + n.Degree + (n.Octave > 0 ? "'" : n.Octave < 0 ? "," : "");
                 var chord = Chord.Resolve(n, map, score.Notation);
                 sbSol.Append(label.PadRight(6));
-                sbKey.Append((chord.Text + (chord.Midi >= 0 ? "(" + chord.PitchName + ")" : "")).PadRight(10));
+                sbKey.Append((chord.Unplayable
+                    ? "✗" + (chord.Midi >= 0 ? chord.PitchName : n.Raw)
+                    : chord.Text + (chord.Midi >= 0 ? "(" + chord.PitchName + ")" : "")).PadRight(12));
                 sbDur.Append((n.Beats.ToString("0.##", CultureInfo.InvariantCulture) + "拍").PadRight(6));
             }
             result.Add($"[{group.Key + 1:00}]  简谱 {sbSol.ToString().TrimEnd()}");

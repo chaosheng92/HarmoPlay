@@ -15,6 +15,8 @@ public partial class HotkeyCaptureWindow : Window
 
     public Key CapturedKey { get; private set; } = Key.None;
     public string CapturedModifiers { get; private set; } = "";
+    /// <summary>用户点了「清除绑定」。</summary>
+    public bool Cleared { get; private set; }
 
     private static bool IsModifierKey(Key key) => key is Key.LeftCtrl or Key.RightCtrl
         or Key.LeftAlt or Key.RightAlt or Key.LeftShift or Key.RightShift
@@ -55,6 +57,14 @@ public partial class HotkeyCaptureWindow : Window
     private void OnOk(object sender, RoutedEventArgs e)
     {
         DialogResult = CapturedKey != Key.None;
+    }
+
+    private void OnClear(object sender, RoutedEventArgs e)
+    {
+        Cleared = true;
+        CapturedKey = Key.None;
+        CapturedModifiers = "";
+        DialogResult = true;
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => DialogResult = false;

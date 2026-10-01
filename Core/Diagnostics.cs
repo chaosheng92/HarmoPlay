@@ -82,7 +82,7 @@ public static class Diagnostics
 
         sb.AppendLine("---- 热键 ----");
         foreach (var h in lib.Settings.Hotkeys)
-            sb.AppendLine($"  {h.Action,-14} {h.Modifiers}{(string.IsNullOrWhiteSpace(h.Modifiers) ? "" : "+")}{ScoreParser.PrettyKey(h.Key)}");
+            sb.AppendLine($"  {HotkeyActions.Describe(h.Action),-34} {h.Text}");
         sb.AppendLine();
 
         sb.AppendLine("---- 最近日志 ----");

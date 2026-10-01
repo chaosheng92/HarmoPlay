@@ -75,6 +75,7 @@ public sealed class HotkeySpec
     {
         get
         {
+            if (string.IsNullOrWhiteSpace(Key)) return "（未设置）";
             var key = ScoreParser.PrettyKey(Key);
             return string.IsNullOrWhiteSpace(Modifiers) ? key : $"{Modifiers}+{key}";
         }
@@ -167,6 +168,8 @@ public static class DefaultHotkeys
     public const string NextSong = "next";
     public const string PrevSong = "prev";
     public const string ToggleOverlay = "toggleoverlay";
+    /// <summary>备用快捷键：默认未绑定，留给用户自己设（Alt+H 冲突时可以换这个）。</summary>
+    public const string ToggleOverlay2 = "toggleoverlay2";
     public const string LockOverlay = "lockoverlay";
     public const string ToggleWait = "togglewait";
     public const string ToggleMode = "togglemode";
@@ -180,6 +183,8 @@ public static class DefaultHotkeys
         new HotkeySpec { Action = NextSong,      Key = "D3", Modifiers = "Alt" },
         new HotkeySpec { Action = PrevSong,      Key = "Up", Modifiers = "Alt" },
         new HotkeySpec { Action = ToggleOverlay, Key = "H",  Modifiers = "Alt" },
+        // 默认留空：由用户自己在「设置快捷键」里指定
+        new HotkeySpec { Action = ToggleOverlay2, Key = "", Modifiers = "" },
         new HotkeySpec { Action = LockOverlay,   Key = "L",  Modifiers = "Alt" },
         new HotkeySpec { Action = ToggleMode,    Key = "M",  Modifiers = "Alt" },
         new HotkeySpec { Action = ToggleWait,    Key = "T",  Modifiers = "Alt" },
@@ -202,6 +207,7 @@ public static class HotkeyActions
         DefaultHotkeys.NextSong => "下一首",
         DefaultHotkeys.PrevSong => "上一首",
         DefaultHotkeys.ToggleOverlay => "显示 / 隐藏悬浮窗",
+        DefaultHotkeys.ToggleOverlay2 => "显示 / 隐藏悬浮窗（备用快捷键，默认未设置，可自己填）",
         DefaultHotkeys.LockOverlay => "锁定 / 解锁悬浮窗（点击穿透）",
         DefaultHotkeys.ToggleMode => "切换 悬浮窗模式（音游下落 / 经典堆叠）",
         DefaultHotkeys.ToggleWait => "切换 自动演奏 / 跟练模式",

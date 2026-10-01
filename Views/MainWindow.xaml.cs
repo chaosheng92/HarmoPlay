@@ -266,6 +266,7 @@ public partial class MainWindow : Window
         // 输入安全
         ChkSuppressMouse.IsChecked = _lib.Settings.Playback.SuppressMouseModifiers;
         TxtInputGuard.Text = $"已就绪（急停热键 {(_lib.Settings.Hotkeys.FirstOrDefault(h => h.Action == DefaultHotkeys.PanicRelease)?.Text ?? "Ctrl+Alt+0")}）";
+        RefreshOverlayHotkeyText();
 
         // 启动时清理上一次可能残留的按键
         Core.InputGuard.ReleaseEverything(KeyVirtualKeys(_lib.EffectiveKeyMap), "启动清理");
@@ -670,8 +671,8 @@ public partial class MainWindow : Window
                 StepSong(-1);
                 break;
             case DefaultHotkeys.ToggleOverlay:
-                ChkOverlay.IsChecked = ChkOverlay.IsChecked != true;
-                OnOverlayToggle(this, new RoutedEventArgs());
+            case DefaultHotkeys.ToggleOverlay2:
+                ToggleOverlayVisibility();
                 break;
             case DefaultHotkeys.LockOverlay:
                 if (_overlay != null)
@@ -718,15 +719,23 @@ public partial class MainWindow : Window
         var dlg = new HotkeyCaptureWindow(row.Spec) { Owner = this };
         if (dlg.ShowDialog() != true) return;
 
-        row.Spec.Key = dlg.CapturedKey.ToString();
-        row.Spec.Modifiers = dlg.CapturedModifiers;
-        bool needModifier = dlg.CapturedModifiers.Length == 0;
-        if (needModifier)
-            SetStatus("提示：未加 Ctrl/Alt 的热键可能和游戏按键冲突，建议加上");
+        if (dlg.Cleared)
+        {
+            row.Spec.Key = "";
+            row.Spec.Modifiers = "";
+        }
+        else
+        {
+            row.Spec.Key = dlg.CapturedKey.ToString();
+            row.Spec.Modifiers = dlg.CapturedModifiers;
+            if (dlg.CapturedModifiers.Length == 0)
+                SetStatus("提示：未加 Ctrl/Alt 的热键可能和游戏按键冲突，建议加上");
+        }
 
         var failed = _hotkeys.RegisterAll(_lib.Settings.Hotkeys);
         TxtHotkeyWarn.Text = failed.Count == 0 ? "" : "注册失败：" + string.Join("、", failed);
         ListHotkeys.Items.Refresh();
+        RefreshOverlayHotkeyText();
         LibraryStore.Save(_lib);
     }
 
@@ -1275,6 +1284,79 @@ public partial class MainWindow : Window
         if (_loading) return;
         SetOverlayMode(ComboOverlayModeBar.SelectedIndex, true);
     }
+
+    // ================================================================ 悬浮窗显隐快捷键
+
+    /// <summary>显示 / 隐藏悬浮窗（Alt+H 与备用快捷键都走这里）。</summary>
+    private void ToggleOverlayVisibility()
+    {
+        ChkOverlay.IsChecked = ChkOverlay.IsChecked != true;
+        OnOverlayToggle(this, new RoutedEventArgs());
+    }
+
+    private HotkeySpec? FindHotkey(string action) =>
+        _lib.Settings.Hotkeys.FirstOrDefault(h => string.Equals(h.Action, action, StringComparison.Ordinal));
+
+    private void RefreshOverlayHotkeyText()
+    {
+        var main = FindHotkey(DefaultHotkeys.ToggleOverlay);
+        var spare = FindHotkey(DefaultHotkeys.ToggleOverlay2);
+        TxtOverlayHotkey.Text = $"显示 / 隐藏快捷键：{main?.Text ?? "（未设置）"}" +
+                                $"　｜　备用：{spare?.Text ?? "（未设置，可自己设）"}";
+    }
+
+    /// <summary>录一个热键绑定（action 为空表示用备用槽）。</summary>
+    private void EditOverlayHotkey(string action, bool clearFirst = false)
+    {
+        var spec = FindHotkey(action);
+        if (spec == null)
+        {
+            spec = new HotkeySpec { Action = action };
+            _lib.Settings.Hotkeys.Add(spec);
+        }
+
+        if (clearFirst)
+        {
+            spec.Key = "";
+            spec.Modifiers = "";
+        }
+        else
+        {
+            var dlg = new HotkeyCaptureWindow(spec) { Owner = this };
+            if (dlg.ShowDialog() != true) return;
+            if (dlg.Cleared)
+            {
+                spec.Key = "";
+                spec.Modifiers = "";
+            }
+            else
+            {
+                spec.Key = dlg.CapturedKey.ToString();
+                spec.Modifiers = dlg.CapturedModifiers;
+                if (spec.Modifiers.Length == 0)
+                    SetStatus("提示：没加 Ctrl/Alt 的热键可能和游戏按键冲突，建议加上");
+            }
+        }
+
+        var failed = _hotkeys.RegisterAll(_lib.Settings.Hotkeys);
+        TxtHotkeyWarn.Text = failed.Count == 0 ? "" : "注册失败：" + string.Join("、", failed);
+        ListHotkeys.Items.Refresh();
+        RefreshOverlayHotkeyText();
+        LibraryStore.Save(_lib);
+        SetStatus(string.IsNullOrWhiteSpace(spec.Key)
+            ? $"已清除「{HotkeyActions.Describe(action)}」的快捷键"
+            : $"「{HotkeyActions.Describe(action)}」已设为 {spec.Text}" +
+              (failed.Count > 0 ? "（注册失败，可能被其它程序占用）" : ""));
+    }
+
+    private void OnSetOverlayHotkey(object sender, RoutedEventArgs e)
+        => EditOverlayHotkey(DefaultHotkeys.ToggleOverlay);
+
+    private void OnSetOverlayHotkey2(object sender, RoutedEventArgs e)
+        => EditOverlayHotkey(DefaultHotkeys.ToggleOverlay2);
+
+    private void OnClearOverlayHotkey2(object sender, RoutedEventArgs e)
+        => EditOverlayHotkey(DefaultHotkeys.ToggleOverlay2, clearFirst: true);
 
     private void OnOverlayPosChanged(object sender, TextChangedEventArgs e)
     {

@@ -26,7 +26,17 @@
                     <StackPanel x:Name="KeyPanel"/>
                 </GroupBox>
                 <GroupBox Header="二、变调修饰（前缀 → 同时按住的鼠标键 / 键盘修饰键）">
-                    <StackPanel x:Name="ModPanel"/>
+                    <StackPanel>
+                        <CheckBox x:Name="ChkPreferSimple" Content="优先选择不需要组合的指法（推荐：人手更好按）"
+                                  Click="OnAllowCombosChanged"
+                                  ToolTip="例：C6 用「逗号键 + 右键」，而不是「M + 右键 + 中键」"/>
+                        <CheckBox x:Name="ChkAllowCombos" Content="允许使用「中键 + 左键 / 右键」组合（技术上可行，但人手很难同时按出）"
+                                  Click="OnAllowCombosChanged"
+                                  ToolTip="三角洲行动实测可用。关掉后：需要组合的音会标为「无法演奏」并跳过"/>
+                        <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,8"
+                                   Text="默认：先找不用组合的指法，找不到才回退到组合（并可在校验/自检里看到提醒）。"/>
+                        <StackPanel x:Name="ModPanel"/>
+                    </StackPanel>
                 </GroupBox>
                 <TextBlock Foreground="#8FA0B5" FontSize="12" Margin="0,0,0,10"
                            Text="说明：颜色用于悬浮窗音符块，默认与游戏灯带一致（白=本音、绿=降调、紫=半音、蓝=升调、黄=半+降、红=半+升）。"/>

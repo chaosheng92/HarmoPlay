@@ -41,6 +41,18 @@ public sealed class KeyMap
     /// <summary>8 个琴键，索引 0..7 对应简谱 1..8（8 = 高音 1）。取值为 WPF Key 名称。</summary>
     public List<string> Keys { get; set; } = new();
     public List<AccidentalMod> Mods { get; set; } = new();
+    /// <summary>
+    /// 是否允许「中键 + 左键」/「中键 + 右键」同时按住（黄/红两档变调）。
+    /// 技术上可行（三角洲实测有效），但**人类很难同时按出来**，所以默认配合
+    /// <see cref="PreferSimpleFingering"/> 一起用：能用简单指法就不用组合。
+    /// </summary>
+    public bool AllowMouseCombos { get; set; } = true;
+
+    /// <summary>
+    /// 优先选择不需要组合的指法（人类更好按）。例如 C6 用「逗号键 + 右键」而不是「M + 右键 + 中键」。
+    /// 只有找不到更简单的指法时，才回退到组合指法。
+    /// </summary>
+    public bool PreferSimpleFingering { get; set; } = true;
 
     public AccidentalMod ModFor(string prefix)
     {
@@ -98,6 +110,8 @@ public sealed class KeyMap
         Note = Note,
         Keys = new List<string>(Keys),
         Mods = Mods.Select(m => m.Clone()).ToList(),
+        AllowMouseCombos = AllowMouseCombos,
+        PreferSimpleFingering = PreferSimpleFingering,
     };
 
     private static AccidentalMod Mod(string prefix, string label, string color,
@@ -110,7 +124,12 @@ public sealed class KeyMap
         Id = "delta",
         Name = "三角洲行动 · 口琴 8 键",
         Note = "8 个琴键 z x c v b n m ,（简谱 1~8，其中 8 = 高音 1）；" +
-               "变调靠鼠标：左键=降调(低音)、中键=半音、右键=升调(高音)，中键+左/右键=半+降 / 半+升。",
+               "变调靠鼠标：左键=降八度、中键=升半音、右键=升八度；" +
+               "中键与左键/右键的组合（黄/红）技术上可用，但人手很难同时按出，" +
+               "所以程序会优先挑不需要组合的指法（如 C6 用「逗号键+右键」），" +
+               "只有没有更简单指法时才用组合，并在校验里提醒你。",
+        AllowMouseCombos = true,
+        PreferSimpleFingering = true,
         Keys = new List<string> { "Z", "X", "C", "V", "B", "N", "M", "OemComma" },
         Mods = new List<AccidentalMod>
         {

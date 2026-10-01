@@ -63,8 +63,7 @@ public static class PitchFingering
 
     /// <summary>按鼠鼠口琴谱的固定指法表选择一个物理按法。</summary>
     public static (Key Key, MouseMod Mouse, string KeyName) FingeringFor(int midi, KeyMap map)
-    {
-        string keyName;
+    {        string keyName;
         MouseMod mouse;
 
         if (midi == MaxMidi) // C6 = #7' = M + 右键 + 中键
@@ -105,6 +104,97 @@ public static class PitchFingering
 
     private static string KeyAt(KeyMap map, int index) =>
         index >= 0 && index < map.Keys.Count ? map.Keys[index] : "Z";
+
+    /// <summary>是否属于「中键 + 左/右键」的组合按法（部分游戏按不出来）。</summary>
+    public static bool IsMouseCombo(MouseMod mouse) =>
+        mouse.HasFlag(MouseMod.Middle) && (mouse.HasFlag(MouseMod.Left) || mouse.HasFlag(MouseMod.Right));
+
+    /// <summary>
+    /// 选定指法。规则：
+    ///   1) 若开启「优先简单指法」（默认），先用 {本音/中键/左键/右键} 里找不用组合的按法；
+    ///   2) 找不到且允许组合 → 用规格表的组合指法（技术可行，但人手很难同时按出）；
+    ///   3) 找不到且不允许组合 → 判定为无法演奏并说明原因。
+    /// </summary>
+    public static bool TryFingering(int midi, KeyMap map, out Key key, out MouseMod mouse, out string error)
+    {
+        key = Key.Z;
+        mouse = MouseMod.None;
+        error = "";
+
+        if (!IsPlayable(midi))
+        {
+            error = $"{NoteName(midi)}（MIDI {midi}）超出可演奏音域 C3~C6";
+            return false;
+        }
+
+        var (k, m, _) = FingeringFor(midi, map);
+        if (!IsMouseCombo(m))
+        {
+            key = k;
+            mouse = m;
+            return true;
+        }
+
+        if (map.PreferSimpleFingering && TryFindSimpleFingering(midi, map, out key, out mouse))
+            return true;
+
+        if (map.AllowMouseCombos)
+        {
+            key = k;
+            mouse = m;
+            return true;
+        }
+
+        key = k;
+        mouse = m;
+        error = $"{NoteName(midi)} 需要「中键 + 左/右键」组合，而当前键位设置不允许组合键";
+        return false;
+    }
+
+    /// <summary>该音最终是否必须用组合键（用来自检/校验里提醒用户）。</summary>
+    public static bool NeedsMouseCombo(int midi, KeyMap map) =>
+        TryFingering(midi, map, out _, out var mouse, out _) && IsMouseCombo(mouse);
+
+    /// <summary>只在 {本音 / 中键 / 左键 / 右键} 里找指法，不含任何组合。</summary>
+    private static bool TryFindSimpleFingering(int midi, KeyMap map, out Key key, out MouseMod mouse)
+    {
+        key = Key.Z;
+        mouse = MouseMod.None;
+        MouseMod[] candidates = { MouseMod.None, MouseMod.Middle, MouseMod.Left, MouseMod.Right };
+
+        for (int i = 0; i < 8; i++)
+        {
+            if (!Enum.TryParse<Key>(KeyAt(map, i), true, out var k)) continue;
+            int basePitch = i == 7 ? BaseC4 + 12 : BaseC4 + NaturalSemitones[i];
+
+            foreach (var candidate in candidates)
+            {
+                int delta = candidate == MouseMod.Middle ? 1 : candidate == MouseMod.Left ? -12 : candidate == MouseMod.Right ? 12 : 0;
+                if (basePitch + delta != midi) continue;
+                key = k;
+                mouse = candidate;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>在当前键位约束下，从 C3 到 C6 哪些半音是弹得出来的（用于文档与提示）。</summary>
+    public static List<int> PlayablePitches(KeyMap map)
+    {
+        var list = new List<int>();
+        for (int midi = MinMidi; midi <= MaxMidi; midi++)
+            if (TryFingering(midi, map, out _, out _, out _)) list.Add(midi);
+        return list;
+    }
+
+    public static List<int> UnplayablePitches(KeyMap map)
+    {
+        var list = new List<int>();
+        for (int midi = MinMidi; midi <= MaxMidi; midi++)
+            if (!TryFingering(midi, map, out _, out _, out _)) list.Add(midi);
+        return list;
+    }
 
     /// <summary>鼠标组合 → 悬浮窗颜色（与游戏灯带一致）。</summary>
     public static string ColorFor(MouseMod mouse) => mouse switch

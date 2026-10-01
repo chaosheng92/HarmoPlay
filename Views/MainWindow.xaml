@@ -431,6 +431,14 @@
                                         <Button Content="预览悬浮窗" Click="OnPreviewOverlay"/>
                                     </StackPanel>
 
+                                    <TextBlock x:Name="TxtOverlayHotkey" Style="{StaticResource Caption}" Margin="0,10,0,4"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="设置显示/隐藏快捷键…" Click="OnSetOverlayHotkey"/>
+                                        <Button Content="设置备用快捷键…" Click="OnSetOverlayHotkey2"
+                                                ToolTip="默认留空，位置随便你设；比如 Alt+\ 或 F8"/>
+                                        <Button Content="清除备用" Click="OnClearOverlayHotkey2"/>
+                                    </StackPanel>
+
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,4"
                                                Text="位置微调：解锁后可直接拖动悬浮窗（拖动条会变橙色），也可以在这里精确设置 / 点箭头微调"/>
                                     <StackPanel Orientation="Horizontal">

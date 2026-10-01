@@ -159,6 +159,32 @@ public static class SelfTest
             foreach (var advice in inputTest.Advice) Log("      · " + advice);
 
             Log("");
+            Log("-- 指法选择（优先简单指法 / 组合键） --");
+            var playable = PitchFingering.PlayablePitches(map);
+            var comboOnly = Enumerable.Range(PitchFingering.MinMidi, 37)
+                .Where(m => PitchFingering.NeedsMouseCombo(m, map)).ToList();
+            Log($"  {map.Name}：AllowMouseCombos={map.AllowMouseCombos}、PreferSimple={map.PreferSimpleFingering} → 可演奏 {playable.Count}/37 个半音");
+            Log($"  必须用「中键+左/右键」组合的音（{comboOnly.Count} 个）：" + string.Join(" ", comboOnly.Select(PitchFingering.NoteName)));
+            foreach (var midi in new[] { 61, 72, 73, 84, 76, 49 })
+            {
+                var ok = PitchFingering.TryFingering(midi, map, out var key, out var mouse, out var err);
+                Log($"      MIDI {midi} = {PitchFingering.NoteName(midi),-3} -> {(ok ? ScoreParser.PrettyKey(key.ToString()) + " 鼠标=" + mouse : "无法演奏：" + err)}");
+            }
+            var strictMap = map.Clone();
+            strictMap.AllowMouseCombos = false;
+            var strictPlayable = PitchFingering.PlayablePitches(strictMap);
+            Log($"  若关闭组合键：可演奏 {strictPlayable.Count}/37，弹不出的音 " +
+                string.Join(" ", PitchFingering.UnplayablePitches(strictMap).Select(PitchFingering.NoteName)));
+
+            Log("");
+            Log("-- 悬浮窗显隐快捷键（备用槽默认留空给用户自设） --");
+            foreach (var action in new[] { DefaultHotkeys.ToggleOverlay, DefaultHotkeys.ToggleOverlay2 })
+            {
+                var spec = lib.Settings.Hotkeys.FirstOrDefault(h => h.Action == action);
+                Log($"      {HotkeyActions.Describe(action),-42} {spec?.Text ?? "(列表里没有)"}");
+            }
+
+            Log("");
             Log("-- 曲谱库内容 --");
             int bad = 0;
             foreach (var song in lib.Songs.Take(30))
