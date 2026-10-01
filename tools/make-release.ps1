@@ -52,6 +52,8 @@ $firstRun = Join-Path $root 'docs\首次运行说明.txt'
 if (Test-Path $firstRun) { Copy-Item $firstRun (Join-Path $stage '首次运行说明.txt') -Force }
 $selftestCmd = Join-Path $root 'tools\输入自检.cmd'
 if (Test-Path $selftestCmd) { Copy-Item $selftestCmd (Join-Path $stage '输入自检.cmd') -Force }
+$unblockCmd = Join-Path $root 'tools\解除下载锁定.cmd'
+if (Test-Path $unblockCmd) { Copy-Item $unblockCmd (Join-Path $stage '解除下载锁定.cmd') -Force }
 # 示例曲谱与 AI 转谱要求（软件左下角也能一键另存）
 $resDir = Join-Path $root 'Resources'
 if (Test-Path $resDir) {
@@ -109,3 +111,4 @@ Write-Host "SHA256：$hash"
 Write-Host "清单：$(Join-Path $root 'update.json')"
 Write-Host ''
 Write-Host '下一步：把 zip 上传到 GitHub Release，并把 update.json 提交到默认分支。'
+

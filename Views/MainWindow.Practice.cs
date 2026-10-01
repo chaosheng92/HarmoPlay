@@ -102,6 +102,58 @@ public partial class MainWindow
     public void EnterPracticeMode() => SetAppMode(practice: true);
 
     /// <summary>
+    /// 命令行 --practicetest [wait|time]：验证练习模式两种前进方式。
+    /// wait = 等你按对再前进（没人按键就应该一直停在第一个音）；
+    /// time = 按拍前进（没人按键也会一个个过去，并记为错过）；
+    /// 两种都不许发送模拟按键（InputSender.TotalSent 必须为 0）。
+    /// </summary>
+    public void RunPracticeTest(string mode)
+    {
+        var wait = !mode.Equals("time", StringComparison.OrdinalIgnoreCase);
+        var parsed = ScoreParser.Parse("1 2 3 4 5 6 7 1' 1 2 3 4", "练习自检", 240, NotationKind.Pitch);
+        InputSender.ResetCounter();
+
+        var options = new PlaybackOptions
+        {
+            Speed = 1,
+            CountdownSeconds = 1,
+            LeadMs = 0,
+            GapMs = 0,
+            RepeatTimes = 1,
+            WaitForInput = wait,
+            SimulateKeys = false,
+            FollowStrictKey = true,
+            FollowCountErrors = true,
+            FollowTimeoutSeconds = 0,
+        };
+
+        int started = 0, ok = 0, miss = 0, wrong = 0;
+        _engine.NoteStarted += _ => started++;
+        _engine.FollowJudged += (_, verdict, _) =>
+        {
+            if (verdict == "ok") ok++;
+            else if (verdict == "miss") miss++;
+            else if (verdict == "wrong") wrong++;
+        };
+
+        Program.Trace($"PRACTICETEST 开始：模式={(wait ? "等你按对再前进" : "按拍前进")}，" +
+                      $"总音数={parsed.Notes.Count}，6 秒后检查");
+        _engine.Play(parsed.Notes, _lib.EffectiveKeyMap, NotationKind.Pitch, 240, options);
+
+        Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(6000);
+            Program.Trace($"PRACTICETEST 结果：模式={(wait ? "wait" : "time")}，" +
+                          $"已触发音符={started}，当前音序号={_engine.CurrentIndex}，" +
+                          $"按对={ok} 按错={wrong} 错过={miss}，" +
+                          $"模拟输入条数={InputSender.TotalSent}（必须为 0）");
+            _engine.Stop();
+            _reallyExit = true;
+            Close();
+        }, DispatcherPriority.Background);
+    }
+
+    /// <summary>
     /// 命令行 --timingtest：用"每拍一个音"的谱面（120 BPM = 每 500ms）实测时间轴。
     /// 倒计时不能被算进曲谱时间，否则开头几个音会抢跑（实测间隔会远小于 500ms）。
     /// </summary>
@@ -252,11 +304,13 @@ public partial class MainWindow
             LeadMs = 10,
             CountdownSeconds = 3,
             RepeatTimes = 1,
-            WaitForInput = true,                 // 练习=跟谱语义：只读按键、不注入
+            // 勾选「等你按对再前进」= 跟谱：不弹对就不走；不勾选 = 按拍前进，仍然只判定不注入
+            WaitForInput = wait,
+            SimulateKeys = false,                // 练习模式绝不发送按键
             FollowStrictKey = true,
             FollowRequireHold = false,
             FollowCountErrors = true,
-            FollowTimeoutSeconds = wait ? 0 : 2, // 不等你时，2 秒没人按就自动过去
+            FollowTimeoutSeconds = 0,
             LegatoSameKey = false,
             SuppressMouseModifiers = false,
         };

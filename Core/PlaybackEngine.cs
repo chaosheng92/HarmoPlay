@@ -284,6 +284,16 @@ public sealed class PlaybackEngine : IDisposable
                         continue;
                     }
 
+                    if (!_options.SimulateKeys)
+                    {
+                        // 练习：按时间轴走，只读取按键判定，绝不注入任何按键
+                        _inProgress = i;
+                        NoteStarted?.Invoke(i);
+                        if (!JudgePlay(chord, i, endMs)) return;
+                        NoteFinished?.Invoke(i);
+                        continue;
+                    }
+
                     if (!chord.SameAs(_pressed))
                     {
                         ReleaseAll();
@@ -385,9 +395,54 @@ public sealed class PlaybackEngine : IDisposable
         return false;
     }
 
-    /// <summary>按住整拍判定：按不够就记一次"漏"。</summary>
-    private bool HoldForDuration(ScoreNote note, Chord chord, int index)
+    /// <summary>
+    /// 练习（只判定不注入）：音符按时间轴自动前进，程序在此期间只读取你的按键，
+    /// 按对 = ok（再按时间差评完美/良好）、按错 = wrong、窗口内没按 = miss。
+    /// </summary>
+    private bool JudgePlay(Chord chord, int index, double endMs)
     {
+        Status?.Invoke($"练习：请弹 {chord.Detail}");
+        string? lastWrong = null;
+
+        while (!_stop)
+        {
+            if (_pause && !_gate.Wait(20)) continue;
+            if (_stop) return false;
+
+            if (chord.IsHeldByUser())
+            {
+                FollowCorrect++;
+                FollowJudged?.Invoke(index, "ok", chord.Detail);
+                return true;
+            }
+
+            if (_options.FollowCountErrors)
+            {
+                var wrong = WrongKeyDown(chord);
+                if (wrong != null && wrong != lastWrong)
+                {
+                    lastWrong = wrong;
+                    FollowWrong++;
+                    FollowJudged?.Invoke(index, "wrong", $"按了 {wrong}，应为 {chord.Text}");
+                    Status?.Invoke($"按错了：你按的是 {wrong}，这里应该弹 {chord.Detail}");
+                }
+                else if (wrong == null)
+                {
+                    lastWrong = null;
+                }
+            }
+
+            if (PositionMs >= endMs) break;   // 这个音的窗口结束了
+            Thread.Sleep(6);
+        }
+
+        FollowMissed++;
+        FollowJudged?.Invoke(index, "miss", "没按");
+        return true;
+    }
+
+    /// <summary>按住整拍判定：按不够就记一次"漏"。</summary>
+    private bool HoldForDuration(ScoreNote note, Chord chord, int index)    {
         double need = Math.Max(120, note.Beats * _beatMs);
         double held = 0;
         while (!_stop && held < need)

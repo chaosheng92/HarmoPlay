@@ -100,8 +100,11 @@ public sealed class PlaybackOptions
     public int LeadMs { get; set; } = 20;
     public int CountdownSeconds { get; set; } = 3;
     public int RepeatTimes { get; set; } = 1;
-    /// <summary>false = 自动弹奏（程序按键）；true = 跟谱弹奏（等你按对再走下一个）。</summary>
+    /// <summary>false = 按时间轴前进；true = 跟谱弹奏（等你按对再走下一个）。</summary>
     public bool WaitForInput { get; set; }
+
+    /// <summary>是否真的模拟按键。练习模式设为 false：按时间轴走 + 只读取按键判定，绝不注入。</summary>
+    public bool SimulateKeys { get; set; } = true;
 
     // ---- 跟谱弹奏的细节 ----
     /// <summary>严格判定：必须按对琴键（带变调的音还要求按对鼠标键）。关掉则按任意琴键都算过。</summary>
@@ -119,7 +122,7 @@ public sealed class PlaybackOptions
     public bool SuppressMouseModifiers { get; set; }
 
     [JsonIgnore]
-    public string ModeText => WaitForInput ? "跟谱弹奏" : "自动弹奏";
+    public string ModeText => !SimulateKeys ? "练习判定" : WaitForInput ? "跟谱弹奏" : "自动弹奏";
 
     public PlaybackOptions Clone() => (PlaybackOptions)MemberwiseClone();
 }

@@ -91,6 +91,11 @@ public static class InputSender
 
     public static bool UseScanCodes { get; set; } = true;
 
+    /// <summary>累计真正发出去的模拟输入条数（自检用：练习模式应当为 0）。</summary>
+    public static int TotalSent { get; private set; }
+
+    public static void ResetCounter() => TotalSent = 0;
+
     public static void BeginHighResolutionTimer() => TimeBeginPeriod(1);
     public static void EndHighResolutionTimer() => TimeEndPeriod(1);
 

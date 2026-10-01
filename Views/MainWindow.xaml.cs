@@ -138,6 +138,14 @@ public partial class MainWindow : Window
         if (argv.Any(a => a.Equals("--timingtest", StringComparison.OrdinalIgnoreCase)))
             Dispatcher.InvokeAsync(RunTimingTest, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
+        // --practicetest [wait|time]：验证练习模式的前进方式，且绝不注入按键
+        var pti = Array.FindIndex(argv, a => a.Equals("--practicetest", StringComparison.OrdinalIgnoreCase));
+        if (pti >= 0)
+        {
+            var mode = pti + 1 < argv.Length ? argv[pti + 1] : "wait";
+            Dispatcher.InvokeAsync(() => RunPracticeTest(mode), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+
         // --settings：启动后直接打开二级设置菜单
         int si = Array.FindIndex(argv, a => a.Equals("--settings", StringComparison.OrdinalIgnoreCase));
         if (si >= 0)

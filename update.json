@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "published": "2026-10-01",
-  "notes": "口琴谱演奏器 v1.0.0：倒计时彻底修正——3 秒里音符从上方落下（PositionMs 为负），判定与按键从数到 0 才开始，不再抢跑；倒计时改为精确对齐秒边界（首个音误差从 144ms 降到 6ms）。退出程序时一并关闭悬浮窗并结束进程（此前悬浮窗会残留）。",
+  "notes": "口琴谱演奏器 v1.0.0：练习模式修正——「等你按对再前进」与「按拍前进」真正区分开（勾选=弹对才走，不勾=按拍自动前进、仍只判定不发送任何按键）；包内新增「解除下载锁定.cmd」用于解决 Windows 下载标记（Internet 安全设置阻止打开）问题。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "6434004649aaf4395f5c7761eb820d65ffb9097708d14766692b840055d8b9c2"
+  "sha256": "1bebbcfdc3ca473fee9b08a4ffa5bcb0f98da95d730af4fba584d7e28df9a93d"
 }
