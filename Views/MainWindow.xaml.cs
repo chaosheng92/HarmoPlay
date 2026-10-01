@@ -242,7 +242,7 @@ public partial class MainWindow : Window
     private void BuildUi()
     {
         Title = $"口琴谱演奏器 HarmoPlay v{Core.UpdateService.CurrentVersion}";
-        TxtVersion.Text = $"v{Core.UpdateService.CurrentVersion} · 数据目录 " + LibraryStore.DataDir;
+        TxtVersion.Text = $"v{Core.UpdateService.CurrentVersion} (build {Core.UpdateService.BuildStamp}) · 数据目录 " + LibraryStore.DataDir;
 
         var p = _lib.Settings.Playback;
         TxtBpm.Text = "";
@@ -1523,6 +1523,7 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
 
 
 

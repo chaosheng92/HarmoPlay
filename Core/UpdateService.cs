@@ -25,6 +25,21 @@ public static class UpdateService
     public static string CurrentVersion =>
         typeof(UpdateService).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
 
+    /// <summary>本次构建的时间戳（用 exe 的写入时间），用来确认用户跑的是哪个包。</summary>
+    public static string BuildStamp
+    {
+        get
+        {
+            try
+            {
+                var path = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(path)) return File.GetLastWriteTime(path).ToString("MM-dd HH:mm");
+            }
+            catch { }
+            return "?";
+        }
+    }
+
     public static async Task<UpdateInfo> CheckAsync(string url, TimeSpan? timeout = null)
     {
         if (string.IsNullOrWhiteSpace(url))
@@ -106,3 +121,4 @@ public static class UpdateService
         return text;
     }
 }
+

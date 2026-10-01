@@ -411,6 +411,8 @@ public sealed class PlaybackEngine : IDisposable
             : _options.FollowTimeoutSeconds <= 0 ? double.MaxValue : _options.FollowTimeoutSeconds * 1000.0;
         double waited = 0;
         string? lastWrong = null;
+        Program.Trace($"跟谱等待：第 {index + 1} 个音「{note.Raw}」应弹 {chord.Text}" +
+                      $"（新手={_options.BeginnerMode} 超时={(timeoutMs > 1e12 ? "永不跳过" : timeoutMs / 1000 + "秒")}）");
 
         while (!_stop)
         {
@@ -439,6 +441,7 @@ public sealed class PlaybackEngine : IDisposable
                     }
                 }
                 FollowJudged?.Invoke(index, "ok", chord.Detail);
+                Program.Trace($"跟谱完成：第 {index + 1} 个音（你等了 {waited:0} ms）");
                 WaitRelease(chord);
                 return true;
             }
@@ -465,6 +468,7 @@ public sealed class PlaybackEngine : IDisposable
                 FollowMissed++;
                 FollowJudged?.Invoke(index, "miss", "超时跳过");
                 Status?.Invoke($"超时，跳过「{note.Raw}」（应为 {chord.Detail}）");
+                Program.Trace($"跟谱跳过：第 {index + 1} 个音「{note.Raw}」等了 {waited:0} ms 还没按对 → 跳过");
                 return true;
             }
             Thread.Sleep(8);
