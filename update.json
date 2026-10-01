@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "published": "2026-10-01",
-  "notes": "口琴谱演奏器 v1.0.0：修复工具栏「播放 / 暂停」与相邻按钮高度不一致、压到下一排的问题（工具栏统一行高 38px、垂直居中）；练习模式「等你按对再前进 / 按拍前进」区分；包内附「解除下载锁定.cmd」。",
+  "notes": "口琴谱演奏器 v1.0.0：新增通用批量导入 —— 不再依赖任何私有格式。支持 CSV/TSV 表格（Excel 一行一首，中英文表头）、JSON（单个/数组/{songs:[]}）、简谱 txt（文件或整个文件夹）；新增「导出曲谱库为 CSV」实现完美往返；导入时逐首校验并列出问题。教程/使用说明/README/AI 转谱要求全部同步更新，发布包附「批量导入模板.csv」。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "564317fdc4c8e5e806b1abff0fd0495f7d1889b5fbd6b5b78db747b0ed32382e"
+  "sha256": "bb586b52fad2032b9d458dc7ef4d47624f0984e8f25ebd95da29bf43f7164039"
 }

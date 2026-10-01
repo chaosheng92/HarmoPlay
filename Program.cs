@@ -87,6 +87,15 @@ public static class Program
             return;
         }
 
+        if (args.Any(a => a.Equals("--export-csv", StringComparison.OrdinalIgnoreCase)))
+        {
+            var file = CollectAfter(args, "--export-csv").FirstOrDefault() ?? "";
+            var text = Cli.ExportCsv(file);
+            WriteReport("export-csv.log", text);
+            Console.WriteLine(text);
+            return;
+        }
+
         if (args.Any(a => a.Equals("--help", StringComparison.OrdinalIgnoreCase)))
         {
             WriteReport("help.txt", Cli.Help());

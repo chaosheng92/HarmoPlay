@@ -905,34 +905,97 @@ public partial class MainWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "选择简谱文件（可多选）",
-            Filter = "简谱文本 (*.txt)|*.txt|JSON 曲谱 (*.json)|*.json|所有文件 (*.*)|*.*",
+            Title = "选择曲谱文件（可多选；支持 CSV / TSV / JSON / TXT）",
+            Filter = "曲谱文件 (*.csv;*.tsv;*.json;*.txt)|*.csv;*.tsv;*.json;*.txt|" +
+                     "批量表格 CSV/TSV (*.csv;*.tsv)|*.csv;*.tsv|" +
+                     "JSON 曲谱 (*.json)|*.json|简谱文本 (*.txt)|*.txt|所有文件 (*.*)|*.*",
             Multiselect = true,
         };
         if (dlg.ShowDialog() != true) return;
+        ImportPaths(dlg.FileNames);
+    }
+
+    /// <summary>批量导入（文件或文件夹）：CSV/TSV、JSON（单个/数组/{songs:[]}）、txt。</summary>
+    private void ImportPaths(IEnumerable<string> paths)
+    {
+        var list = paths.ToList();
+        // 原版 library.json（私有格式）仍走专用导入，其余走通用批量导入
+        var squirrel = list.Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                                       && !LibraryStore.IsSingleSongJson(f)
+                                       && !BatchImport.LooksLikePlainSongList(f)).ToList();
+        var rest = list.Except(squirrel).ToList();
 
         int total = 0;
         var messages = new List<string>();
-        foreach (var file in dlg.FileNames)
+
+        foreach (var file in squirrel)
         {
-            if (file.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && !LibraryStore.IsSingleSongJson(file))
-            {
-                var (imp, _, msg) = LibraryStore.ImportSquirrelLibrary(_lib, file);
-                total += imp;
-                messages.Add(Path.GetFileName(file) + "：" + msg);
-            }
-            else
-            {
-                var (imp, msg) = LibraryStore.ImportScoreFiles(_lib, new[] { file });
-                total += imp;
-                messages.Add(Path.GetFileName(file) + "：" + msg);
-            }
+            var (imp, _, msg) = LibraryStore.ImportSquirrelLibrary(_lib, file);
+            total += imp;
+            messages.Add(Path.GetFileName(file) + "：" + msg);
         }
+
+        if (rest.Count > 0)
+        {
+            var report = BatchImport.FromPaths(_lib, rest);
+            total += report.Added;
+            messages.Add(report.Summary);
+            messages.AddRange(report.Messages.Take(12).Select(m => "  · " + m));
+            messages.AddRange(report.Warnings.Take(5).Select(w => "  ⚠ " + w));
+        }
+
         LibraryStore.Save(_lib);
         RefreshFolders();
         RefreshSongs();
         SetStatus($"共导入 {total} 首");
         MessageBox.Show(string.Join("\n", messages), "导入结果", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>批量导入整个文件夹（递归找 .csv/.tsv/.json/.txt）。</summary>
+    private void OnImportFolder(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFolderDialog
+        {
+            Title = "选择要批量导入的文件夹（里面放 CSV / JSON / TXT 曲谱都行）",
+            Multiselect = false,
+        };
+        if (dlg.ShowDialog() != true) return;
+        ImportPaths(new[] { dlg.FolderName });
+    }
+
+    /// <summary>把整个曲谱库导出为 CSV（Excel 编辑后可原样导回）。</summary>
+    private void OnExportAllCsv(object sender, RoutedEventArgs e)
+    {
+        var dlg = new SaveFileDialog
+        {
+            Title = "导出整个曲谱库为 CSV",
+            FileName = "曲谱库导出.csv",
+            Filter = "CSV 表格 (*.csv)|*.csv|所有文件 (*.*)|*.*",
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            File.WriteAllText(dlg.FileName, BatchImport.ToCsv(_lib), new UTF8Encoding(true));
+            SetStatus($"已导出 {_lib.Songs.Count} 首到 {dlg.FileName}（可用 Excel 编辑后导回）");
+            var r = MessageBox.Show(
+                $"已导出 {_lib.Songs.Count} 首曲谱：\n{dlg.FileName}\n\n" +
+                "列：曲名 / 简谱 / BPM / 拍号 / 歌手 / 分类 / 记谱 / 启用\n" +
+                "改完另存为 CSV（UTF-8）后用「导入曲谱文件…」导回即可。\n\n要打开所在文件夹吗？",
+                "导出完成", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            if (r == MessageBoxResult.Yes)
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = "/select,\"" + dlg.FileName + "\"",
+                    UseShellExecute = true,
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            SetStatus("导出失败：" + ex.Message);
+        }
     }
 
     private void OnExportTxt(object sender, RoutedEventArgs e)
@@ -1326,6 +1389,8 @@ public partial class MainWindow : Window
             ShowOverlay = ShowOverlay,
             PanicRelease = () => OnPanicRelease(this, new RoutedEventArgs()),
             SetOverlayLocked = SetOverlayLocked,
+            ImportFolder = () => { _settingsWindow?.Close(); OnImportFolder(this, new RoutedEventArgs()); },
+            ExportAllCsv = () => OnExportAllCsv(this, new RoutedEventArgs()),
             MinimizeToTray = () => { Close(); },
             RefreshMain = () =>
             {
@@ -1423,6 +1488,7 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
 
 
 

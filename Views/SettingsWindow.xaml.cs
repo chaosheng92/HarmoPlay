@@ -27,6 +27,9 @@ public sealed class SettingsContext
     public required Action<bool> SetOverlayLocked { get; init; }
     /// <summary>立刻最小化到右下角托盘。</summary>
     public required Action MinimizeToTray { get; init; }
+    /// <summary>批量导入文件夹 / 导出曲谱库为 CSV（由主窗口实现）。</summary>
+    public required Action ImportFolder { get; init; }
+    public required Action ExportAllCsv { get; init; }
     /// <summary>让主窗口重新解析预览、刷新工具条与右侧面板。</summary>
     public required Action RefreshMain { get; init; }
 }
@@ -84,6 +87,10 @@ public partial class SettingsWindow : Window
     }
 
     private void OnMinimizeToTray(object sender, RoutedEventArgs e) => _ctx.MinimizeToTray();
+
+    private void OnImportFolder(object sender, RoutedEventArgs e) => _ctx.ImportFolder();
+
+    private void OnExportAllCsv(object sender, RoutedEventArgs e) => _ctx.ExportAllCsv();
 
     /// <summary>把 Assets\Seed 里缺失的内置曲谱补回来（自己删过的不会被强塞，除非文件还存在）。</summary>
     private void OnReseedSamples(object sender, RoutedEventArgs e)
@@ -712,6 +719,7 @@ private void SyncOverlaySettingsFromWindow()
         SettingsTabs.SelectedIndex = Math.Clamp(index, 0, SettingsTabs.Items.Count - 1);
 
 }
+
 
 
 

@@ -304,6 +304,10 @@
                                         <Button Content="恢复默认设置" Click="OnResetSettings"/>
                                     </StackPanel>
                                     <Button Content="重新导入内置曲谱（补齐示例曲谱）" HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnReseedSamples"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button Content="批量导入文件夹…（CSV / JSON / TXT）" Click="OnImportFolder"/>
+                                        <Button Content="导出曲谱库为 CSV…" Click="OnExportAllCsv"/>
+                                    </StackPanel>
                                     <Button Content="现在最小化到托盘试试" HorizontalAlignment="Left" Margin="0,8,0,0"
                                             Click="OnMinimizeToTray"/>
                                 </StackPanel>
@@ -331,6 +335,7 @@
         </StackPanel>
     </Grid>
 </Window>
+
 
 
 

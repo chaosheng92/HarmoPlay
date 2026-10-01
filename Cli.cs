@@ -13,27 +13,26 @@ public static class Cli
         try
         {
             if (string.IsNullOrWhiteSpace(path))
-                return "用法：HarmoPlay.exe --import <曲谱文件或 library.json>";
+                return "用法：HarmoPlay.exe --import <文件 | 文件夹>（支持 .csv/.tsv/.json/.txt）";
 
             var lib = Core.LibraryStore.Load();
             sb.AppendLine("数据目录：" + Core.LibraryStore.DataDir);
             sb.AppendLine("导入前曲谱数：" + lib.Songs.Count);
 
-            if (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            // 原版 library.json 仍优先走专用导入（能带分类/统计）；其余一律走通用批量导入
+            if (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                && !Core.LibraryStore.IsSingleSongJson(path)
+                && !Core.BatchImport.LooksLikePlainSongList(path))
             {
                 var (imported, skipped, msg) = Core.LibraryStore.ImportSquirrelLibrary(lib, path);
                 sb.AppendLine(msg);
             }
-            else if (Directory.Exists(path))
-            {
-                var files = Directory.GetFiles(path, "*.txt");
-                var (imported, msg) = Core.LibraryStore.ImportScoreFiles(lib, files);
-                sb.AppendLine(msg);
-            }
             else
             {
-                var (imported, msg) = Core.LibraryStore.ImportScoreFiles(lib, new[] { path });
-                sb.AppendLine(msg);
+                var report = Core.BatchImport.FromPaths(lib, new[] { path });
+                sb.AppendLine(report.Summary);
+                foreach (var m in report.Messages) sb.AppendLine("  · " + m);
+                foreach (var w in report.Warnings.Take(10)) sb.AppendLine("  ⚠ " + w);
             }
 
             Core.LibraryStore.Save(lib);
@@ -110,6 +109,25 @@ public static class Cli
         return "导出示例曲谱与 AI 转谱要求：" + Environment.NewLine + text;
     }
 
+    /// <summary>导出整个曲谱库为 CSV（可用 Excel/WPS 编辑后原样导回）。</summary>
+    public static string ExportCsv(string path)
+    {
+        var lib = Core.LibraryStore.Load();
+        if (string.IsNullOrWhiteSpace(path))
+            path = Path.Combine(Core.LibraryStore.DataDir, "曲谱库导出.csv");
+        try
+        {
+            File.WriteAllText(path, Core.BatchImport.ToCsv(lib), new UTF8Encoding(true));
+        }
+        catch (Exception ex)
+        {
+            return "导出失败：" + ex.Message;
+        }
+        return $"已导出 {lib.Songs.Count} 首曲谱到：\n{path}\n\n" +
+               "用 Excel / WPS 打开编辑（列：曲名,简谱,BPM,拍号,歌手,分类,记谱,启用），\n" +
+               "改完另存为 CSV（UTF-8）再用「导入曲谱文件…」或 --import 导回即可。";
+    }
+
     public static string InputTest()
     {
         var report = Core.InputSelfTest.Run().ToString();
@@ -168,11 +186,12 @@ public static class Cli
 
           HarmoPlay.exe                 启动图形界面
           --selftest                    运行自检并写出 selftest.log
-          --import <文件|目录>          导入曲谱（library.json / 简谱 txt / 目录内全部 txt）
+          --import <文件|目录>          导入曲谱（.csv/.tsv/.json/.txt，或整个文件夹）
           --validate <曲名.json>        按转谱规范校验 AI 生成的曲谱文件
           --checkupdate                 检查更新（结果写到 update-check.log）
           --inputtest                   输入注入自检（判断"自动弹奏为什么没反应"）
           --export-docs [目录]           导出「示例曲谱」与「AI 转谱要求.txt」
+          --export-csv [文件]            把整个曲谱库导出为 CSV（可编辑后再导回）
           --feedback                    导出诊断包（问题反馈用）到 feedback\ 目录
           --list                        列出曲谱库内容到 library.txt
           --help                        显示本帮助

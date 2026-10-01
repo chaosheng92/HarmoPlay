@@ -14,8 +14,22 @@ public static class NotationKindText
 {
     public static string ToText(this NotationKind k) => k == NotationKind.Pitch ? "固定音高" : "直接按键";
 
-    public static NotationKind FromText(string? text) =>
-        string.Equals(text, "pitch", StringComparison.OrdinalIgnoreCase) ? NotationKind.Pitch : NotationKind.Physical;
+    /// <summary>把记谱法 id（pitch / physical）或中文名转成中文显示名，用于导出 CSV。</summary>
+    public static string FromId(string? id) => FromText(id).ToText();
+
+    /// <summary>识别记谱法：既认英文 id（pitch / physical），也认中文名（固定音高 / 直接按键）。</summary>
+    public static NotationKind FromText(string? text)
+    {
+        var t = (text ?? "").Trim();
+        if (t.Length == 0) return NotationKind.Physical;
+        if (t.Contains("固定音高", StringComparison.Ordinal)
+            || t.Contains("音高", StringComparison.Ordinal)
+            || string.Equals(t, "pitch", StringComparison.OrdinalIgnoreCase))
+        {
+            return NotationKind.Pitch;
+        }
+        return NotationKind.Physical;
+    }
 
     public static string ToId(this NotationKind k) => k == NotationKind.Pitch ? "pitch" : "physical";
 }
