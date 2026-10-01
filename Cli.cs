@@ -103,6 +103,13 @@ public static class Cli
         return "诊断包已导出：\n" + file + "\n\n把它附到 GitHub Issue 即可（不含曲谱内容）。\n\n" + Core.Diagnostics.Build(lib);
     }
 
+    public static string ExportDocs(string dir)
+    {
+        if (string.IsNullOrWhiteSpace(dir)) dir = Path.Combine(Core.LibraryStore.DataDir, "文档与示例");
+        var text = Core.Downloads.ExportAll(dir);
+        return "导出示例曲谱与 AI 转谱要求：" + Environment.NewLine + text;
+    }
+
     public static string InputTest()
     {
         var report = Core.InputSelfTest.Run().ToString();
@@ -130,6 +137,7 @@ public static class Cli
           --validate <曲名.json>        按转谱规范校验 AI 生成的曲谱文件
           --checkupdate                 检查更新（结果写到 update-check.log）
           --inputtest                   输入注入自检（判断"自动弹奏为什么没反应"）
+          --export-docs [目录]           导出「示例曲谱」与「AI 转谱要求.txt」
           --feedback                    导出诊断包（问题反馈用）到 feedback\ 目录
           --list                        列出曲谱库内容到 library.txt
           --help                        显示本帮助

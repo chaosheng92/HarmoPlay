@@ -78,6 +78,15 @@ public static class Program
             return;
         }
 
+        if (args.Any(a => a.Equals("--export-docs", StringComparison.OrdinalIgnoreCase)))
+        {
+            var dir = CollectAfter(args, "--export-docs").FirstOrDefault() ?? "";
+            var text = Cli.ExportDocs(dir);
+            WriteReport("export-docs.log", text);
+            Console.WriteLine(text);
+            return;
+        }
+
         if (args.Any(a => a.Equals("--help", StringComparison.OrdinalIgnoreCase)))
         {
             WriteReport("help.txt", Cli.Help());

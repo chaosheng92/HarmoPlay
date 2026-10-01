@@ -52,6 +52,13 @@ $firstRun = Join-Path $root 'docs\首次运行说明.txt'
 if (Test-Path $firstRun) { Copy-Item $firstRun (Join-Path $stage '首次运行说明.txt') -Force }
 $selftestCmd = Join-Path $root 'tools\输入自检.cmd'
 if (Test-Path $selftestCmd) { Copy-Item $selftestCmd (Join-Path $stage '输入自检.cmd') -Force }
+# 示例曲谱与 AI 转谱要求（软件左下角也能一键另存）
+$resDir = Join-Path $root 'Resources'
+if (Test-Path $resDir) {
+    $docDir = Join-Path $stage '文档与示例'
+    New-Item -ItemType Directory -Force -Path $docDir | Out-Null
+    Copy-Item (Join-Path $resDir '*') $docDir -Force
+}
 $exe = Join-Path $stage 'HarmoPlay.exe'
 if (Test-Path $exe) { Rename-Item $exe '口琴谱演奏器.exe' }
 

@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>HarmoPlay</AssemblyName>
     <RootNamespace>HarmoPlay</RootNamespace>
-    <Version>1.3.0</Version>
+    <Version>1.4.0</Version>
     <Product>口琴谱演奏器</Product>
     <AssemblyTitle>口琴谱演奏器 HarmoPlay</AssemblyTitle>
     <Description>简谱曲谱库 / 自动演奏 / 悬浮窗键位提示（三角洲行动口琴预设）</Description>
@@ -25,6 +25,9 @@
     <None Update="Assets\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- 左下角「示例曲谱 / AI 转谱要求」两个下载按钮的内容，嵌进 exe，丢了文件夹也能用 -->
+    <EmbeddedResource Include="Resources\*.*" />
+    <None Remove="Resources\*.*" />
   </ItemGroup>
 
 </Project>

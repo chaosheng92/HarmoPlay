@@ -1285,6 +1285,74 @@ public partial class MainWindow : Window
         SetOverlayMode(ComboOverlayModeBar.SelectedIndex, true);
     }
 
+    // ================================================================ 左下角下载
+
+    private void OnDownloadSampleScore(object sender, RoutedEventArgs e)
+    {
+        var dlg = new SaveFileDialog
+        {
+            Title = "保存示例曲谱（可直接导入）",
+            FileName = Core.Downloads.SampleScoreFile,
+            Filter = "曲谱 JSON (*.json)|*.json|所有文件 (*.*)|*.*",
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        if (!Core.Downloads.Export(Core.Downloads.SampleScoreFile, dlg.FileName, out var message))
+        {
+            SetStatus(message);
+            MessageBox.Show(message, "示例曲谱", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // 顺带把格式说明也写到同一个目录
+        var dir = Path.GetDirectoryName(dlg.FileName) ?? LibraryStore.DataDir;
+        Core.Downloads.Export(Core.Downloads.SampleReadmeFile, Path.Combine(dir, Core.Downloads.SampleReadmeFile), out _);
+
+        SetStatus(message + "（同目录还附了「示例曲谱-说明.txt」）");
+        OfferOpen(dir, dlg.FileName, "示例曲谱已保存");
+    }
+
+    private void OnDownloadAiSpec(object sender, RoutedEventArgs e)
+    {
+        var dlg = new SaveFileDialog
+        {
+            Title = "保存 AI 转谱要求",
+            FileName = Core.Downloads.AiSpecFile,
+            Filter = "文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*",
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        if (!Core.Downloads.Export(Core.Downloads.AiSpecFile, dlg.FileName, out var message))
+        {
+            SetStatus(message);
+            MessageBox.Show(message, "AI 转谱要求", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        SetStatus(message + "　把它全文复制给 AI，再附上音频 / MIDI / 谱面图片即可");
+        OfferOpen(Path.GetDirectoryName(dlg.FileName) ?? LibraryStore.DataDir, dlg.FileName, "AI 转谱要求已保存");
+    }
+
+    private void OfferOpen(string dir, string file, string title)
+    {
+        var r = MessageBox.Show($"{title}：\n{file}\n\n要打开所在文件夹吗？", title,
+            MessageBoxButton.YesNo, MessageBoxImage.Information);
+        if (r != MessageBoxResult.Yes) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = "/select,\"" + file + "\"",
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            SetStatus("打开文件夹失败：" + ex.Message);
+        }
+    }
+
     // ================================================================ 悬浮窗显隐快捷键
 
     /// <summary>显示 / 隐藏悬浮窗（Alt+H 与备用快捷键都走这里）。</summary>

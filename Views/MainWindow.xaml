@@ -612,8 +612,20 @@
         <!-- 状态栏 -->
         <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="6" Padding="10,6" Margin="0,10,0,0">
             <Grid>
-                <TextBlock x:Name="TxtStatus" Text="就绪"/>
-                <TextBlock x:Name="TxtVersion" HorizontalAlignment="Right" Foreground="#8FA0B5" FontSize="12"/>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="⬇ 示例曲谱" Padding="8,2" FontSize="11" Margin="0,0,6,0" Click="OnDownloadSampleScore"
+                            ToolTip="另存为一份可直接导入的示例曲谱（小星星），并附带格式说明"/>
+                    <Button Content="⬇ AI 转谱要求" Padding="8,2" FontSize="11" Margin="0" Click="OnDownloadAiSpec"
+                            ToolTip="另存为一份可直接复制给 AI 的转谱要求 txt（含格式、音高、音域、自检清单）"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" x:Name="TxtStatus" Text="就绪" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="2" x:Name="TxtVersion" HorizontalAlignment="Right" Foreground="#8FA0B5"
+                           FontSize="12" VerticalAlignment="Center"/>
             </Grid>
         </Border>
     </Grid>
