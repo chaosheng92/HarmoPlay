@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "published": "2026-10-01",
-  "notes": "口琴谱演奏器 v1.0.0：演奏方式重新分工——「跟谱弹奏」改为**连续**（不发送按键，谱面按拍自己往前走，你跟着弹，漏了记漏继续）；「新手模式」维持**按对才继续**（按错/没按住就停在这一音、永不跳过）。两者都不发送任何按键。",
+  "notes": "口琴谱演奏器 v1.0.0：修复切不到「新手模式」——下拉未选中(-1)时不再被当成自动弹奏；切「跟谱弹奏 / 新手模式」一律不再弹风险警告（只有自动弹奏才弹）。切换动作现在会记录到 data\\startup.log（演奏方式切换：index=… text=…）。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "079c9b2d57e1e673d468e42eedddf0550263415dc789bf04570fd31ee12bd5f8"
+  "sha256": "f944186ac4822ad535e0b9af268d2a017bfdfaf2f73c58fbc5bfa7b3ce55479c"
 }

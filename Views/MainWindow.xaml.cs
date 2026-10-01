@@ -608,11 +608,15 @@ public partial class MainWindow : Window
     private void OnPlayModeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
-        int mode = Math.Clamp(ComboPlayMode.SelectedIndex, 0, 2);
-        bool follow = mode is 1 or 2;          // 跟谱 / 新手 都不发送按键，必须等用户按对
+        int index = ComboPlayMode.SelectedIndex;
+        Program.Trace($"演奏方式切换：index={index} text=\"{ComboPlayMode.SelectedItem as string}\"");
+        // 没选中（-1）什么都不做：以前被 Math.Clamp 成 0（自动弹奏），于是会弹风险警告，
+        // 拒绝后又把人踢回跟谱 → 表现为"切不到新手模式"。
+        if (index < 0) return;
+        int mode = index >= 2 ? 2 : index == 1 ? 1 : 0;
         bool beginner = mode == 2;
 
-        // 开启自动弹奏前必须经过风险确认；不同意就留在跟谱弹奏
+        // 只有「自动弹奏」需要风险确认；跟谱 / 新手模式一律不弹警告
         if (mode == 0 && !ConfirmAutoPlay(switching: true))
         {
             ForceFollowMode();
