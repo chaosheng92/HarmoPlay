@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "published": "2026-10-01",
-  "notes": "口琴谱演奏器 v1.0.0：所有对\"演奏方式\"下拉的程序化赋值统一走受保护的 SetPlayModeIndex（回退/刷新/快捷键循环），彻底消除假 SelectionChanged——切换跟谱/新手模式不会再误弹自动弹奏风险窗。",
+  "notes": "口琴谱演奏器 v1.0.0：修复\"确认过弹窗后无法再切换演奏方式\"——原来用屏蔽标志忽略程序事件，模态弹窗期间标志被留成 true 导致后续点选全被忽略；改为只忽略程序刚设置的那个索引（回声），无残留状态。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "480d8980db2d9c95b4bcbb1b6fe709cd38c1e957a37ee2b7ec7ef233cc5cb262"
+  "sha256": "bbb608bdd03630fa388a8783a71297c035998ac2e32cdafbeb24c93787abe470"
 }

@@ -622,6 +622,8 @@ public partial class MainWindow : Window
 
     /// <summary>true = 正在由程序设置"演奏方式"下拉（忽略由此产生的 SelectionChanged）。</summary>
     private bool _settingModeIndex;
+    /// <summary>程序最近一次设置的索引：只忽略这一个"回声"事件，不会有残留状态。</summary>
+    private int _lastProgrammaticIndex = -1;
 
     /// <summary>程序设置"演奏方式"下拉的唯一入口：屏蔽由此产生的 SelectionChanged（假事件）。</summary>
     private void SetPlayModeIndex(int index)
@@ -634,8 +636,9 @@ public partial class MainWindow : Window
     private void OnPlayModeChanged(object sender, SelectionChangedEventArgs e)
     {
         // 程序自己改索引（初始化 / 刷新 / 回退）时不算用户操作，直接忽略
-        if (_loading || _settingModeIndex) return;
+        if (_loading) return;
         int index = ComboPlayMode.SelectedIndex;
+        if (index == _lastProgrammaticIndex) { _lastProgrammaticIndex = -1; return; }   // 程序设置的回声
         Program.Trace($"演奏方式切换：index={index} text=\"{ComboPlayMode.SelectedItem as string}\"");
         // 没选中（-1）什么都不做：以前被 Math.Clamp 成 0（自动弹奏），于是会弹风险警告，
         // 拒绝后又把人踢回跟谱 → 表现为"切不到新手模式"。
@@ -1561,6 +1564,7 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
 
 
 
