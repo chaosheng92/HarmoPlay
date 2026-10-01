@@ -1417,6 +1417,31 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnInputSelfTest(object sender, RoutedEventArgs e)
+    {
+        SetStatus("正在做输入自检（会发一个无害的 F24 测试键）…");
+        Task.Run(() => Core.InputSelfTest.Run()).ContinueWith(t =>
+        {
+            Core.InputTestResult r;
+            try
+            {
+                r = t.Result;
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() => SetStatus("输入自检失败：" + ex.Message));
+                return;
+            }
+            Dispatcher.Invoke(() =>
+            {
+                SetStatus(r.Verdict);
+                TxtInputGuard.Text = r.InjectedSeen ? "最近自检：注入正常 ✓" : "最近自检：注入被系统丢弃 ✗";
+                MessageBox.Show(r.ToString(), "输入自检",
+                    MessageBoxButton.OK, r.InjectedSeen ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            });
+        });
+    }
+
     private void SetStatus(string text) => TxtStatus.Text = text;
 
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)

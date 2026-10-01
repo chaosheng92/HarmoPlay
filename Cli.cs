@@ -103,6 +103,17 @@ public static class Cli
         return "诊断包已导出：\n" + file + "\n\n把它附到 GitHub Issue 即可（不含曲谱内容）。\n\n" + Core.Diagnostics.Build(lib);
     }
 
+    public static string InputTest()
+    {
+        var report = Core.InputSelfTest.Run().ToString();
+        try
+        {
+            File.WriteAllText(Path.Combine(Core.LibraryStore.DataDir, "input-test.log"), report, Encoding.UTF8);
+        }
+        catch { /* 忽略 */ }
+        return report;
+    }
+
     public static string Validate(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -118,6 +129,7 @@ public static class Cli
           --import <文件|目录>          导入曲谱（鼠鼠口琴谱 library.json / 简谱 txt / 目录内全部 txt）
           --validate <曲名.json>        按转谱规范校验 AI 生成的曲谱文件
           --checkupdate                 检查更新（结果写到 update-check.log）
+          --inputtest                   输入注入自检（判断"自动弹奏为什么没反应"）
           --feedback                    导出诊断包（问题反馈用）到 feedback\ 目录
           --list                        列出曲谱库内容到 library.txt
           --help                        显示本帮助

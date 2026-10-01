@@ -45,6 +45,8 @@ if (Test-Path (Join-Path $root 'package')) { Remove-Item (Join-Path $root 'packa
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item (Join-Path $dist '*') $stage -Recurse -Force
 Copy-Item (Join-Path $root '使用说明.txt') (Join-Path $stage '使用说明.txt') -Force
+$selftestCmd = Join-Path $root 'tools\输入自检.cmd'
+if (Test-Path $selftestCmd) { Copy-Item $selftestCmd (Join-Path $stage '输入自检.cmd') -Force }
 $exe = Join-Path $stage 'HarmoPlay.exe'
 if (Test-Path $exe) { Rename-Item $exe '口琴谱演奏器.exe' }
 

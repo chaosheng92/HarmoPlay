@@ -151,6 +151,14 @@ public static class SelfTest
             Log($"  默认演奏方式：{freshSettings.Playback.ModeText}；开播倒计时 {freshSettings.Playback.CountdownSeconds} 秒");
 
             Log("");
+            Log("-- 输入注入自检（判断模拟按键是否被系统接受） --");
+            var inputTest = InputSelfTest.Run();
+            Log($"  {inputTest.Verdict}");
+            Log($"  程序完整性：{inputTest.Integrity}；会话 {inputTest.SessionId}；输入桌面 {inputTest.InputDesktop}；前台 {inputTest.Foreground}");
+            Log($"  钩子安装：{(inputTest.HookInstalled ? "成功" : "失败")}；收到的测试事件：{inputTest.EventsSeen}");
+            foreach (var advice in inputTest.Advice) Log("      · " + advice);
+
+            Log("");
             Log("-- 曲谱库内容 --");
             int bad = 0;
             foreach (var song in lib.Songs.Take(30))

@@ -515,6 +515,8 @@
                                                Text="程序只在发键瞬间按住鼠标键，发完立刻松开；停止/急停/退出都会强制松开，另有 250ms 看门狗兜底。"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                         <Button Content="✋ 立即松开所有按键" Style="{StaticResource DangerButton}" Click="OnPanicRelease"/>
+                                        <Button Content="输入自检（查为什么没反应）" Click="OnInputSelfTest"
+                                                ToolTip="装一个键盘钩子并注入一个测试按键，判断系统是否接受了本程序的模拟输入"/>
                                         <TextBlock x:Name="TxtInputGuard" VerticalAlignment="Center" FontSize="12" Foreground="#8FA0B5"/>
                                     </StackPanel>
                                 </StackPanel>

@@ -36,6 +36,26 @@ public static class Diagnostics
         sb.AppendLine("屏幕：" + System.Windows.SystemParameters.PrimaryScreenWidth.ToString("0") + "x" +
                       System.Windows.SystemParameters.PrimaryScreenHeight.ToString("0") + "（逻辑像素）");
         sb.AppendLine();
+        sb.AppendLine("---- 输入注入环境 ----");
+        var (integrity, rid) = EnvInfo.Integrity;
+        sb.AppendLine("程序完整性：" + integrity + "（Windows 会丢弃 Low 完整性进程的模拟输入）");
+        sb.AppendLine("提权运行：" + (EnvInfo.IsElevated ? "是" : "否"));
+        sb.AppendLine($"会话：{EnvInfo.SessionId}　窗口站：{EnvInfo.WindowStation}　线程桌面：{EnvInfo.Desktop}　当前输入桌面：{EnvInfo.InputDesktop}");
+        sb.AppendLine("前台窗口：" + EnvInfo.ForegroundWindowText);
+        if (rid == 0x1000)
+            sb.AppendLine("⚠ 当前处于低完整性（沙箱 / 受限环境）——自动弹奏的按键会被系统丢弃。");
+        var testLog = Path.Combine(LibraryStore.DataDir, "input-test.log");
+        if (File.Exists(testLog))
+        {
+            try
+            {
+                var lines = File.ReadAllLines(testLog);
+                var verdict = lines.FirstOrDefault(l => l.StartsWith("结果：")) ?? "(见 input-test.log)";
+                sb.AppendLine("最近输入自检：" + verdict.Trim());
+            }
+            catch { /* 忽略 */ }
+        }
+        sb.AppendLine();
 
         sb.AppendLine("---- 键位映射 ----");
         var map = lib.EffectiveKeyMap;

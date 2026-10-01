@@ -70,6 +70,14 @@ public static class Program
             return;
         }
 
+        if (args.Any(a => a.Equals("--inputtest", StringComparison.OrdinalIgnoreCase)))
+        {
+            var text = Cli.InputTest();
+            WriteReport("input-test.log", text);
+            Console.WriteLine(text);
+            return;
+        }
+
         if (args.Any(a => a.Equals("--help", StringComparison.OrdinalIgnoreCase)))
         {
             WriteReport("help.txt", Cli.Help());
