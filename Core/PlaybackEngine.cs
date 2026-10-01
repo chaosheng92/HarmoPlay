@@ -388,6 +388,22 @@ public sealed class PlaybackEngine : IDisposable
     /// <summary>跟谱弹奏：等用户按对当前的音（可配严格判定、按住整拍、按错提示、超时跳过）。</summary>
     private bool FollowPlay(ScoreNote note, Chord chord, int index)
     {
+        // 关键：等用户的时候把"曲谱时间轴"冻住（把这段等待从时间轴里扣掉）。
+        // 否则你卡在某个音上几秒后，时间轴已经跑远，按对的一瞬间后面几个音会一起冲出来
+        // ——看起来就是"没按到也往下走"。
+        double waitStart = _watch.Elapsed.TotalMilliseconds;
+        try
+        {
+            return FollowPlayCore(note, chord, index);
+        }
+        finally
+        {
+            _timelineOffsetMs += _watch.Elapsed.TotalMilliseconds - waitStart;
+        }
+    }
+
+    private bool FollowPlayCore(ScoreNote note, Chord chord, int index)
+    {
         Status?.Invoke($"跟谱弹奏：请弹 {chord.Detail}");
         // 新手模式：永不跳过（一直等你按对）；普通跟谱：按设定超时跳过
         double timeoutMs = _options.BeginnerMode

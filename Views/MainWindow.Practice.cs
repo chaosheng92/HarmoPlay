@@ -149,6 +149,7 @@ public partial class MainWindow
             Program.Trace($"PRACTICETEST 结果：模式={(wait ? "wait" : "time")}，" +
                           $"已触发音符={started}，当前音序号={_engine.CurrentIndex}，" +
                           $"按对={ok} 按错={wrong} 错过={miss}，" +
+                          $"时间轴位置={_engine.PositionMs:0}ms（跟谱模式等你时应当≈0，说明曲谱已冻结），" +
                           $"模拟输入条数={InputSender.TotalSent}（必须为 0）");
             _engine.Stop();
             _reallyExit = true;
