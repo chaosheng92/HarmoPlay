@@ -35,7 +35,7 @@ public static class SelfTest
             Log("-- 解析测试 --");
             var samples = new (string title, string text)[]
             {
-                ("鼠鼠格式", "5,:0.5 5,:0.5 | 6,:1 5,:1 1:1 | 7,:2 #6:1 b3:0.5"),
+                ("固定音高格式", "5,:0.5 5,:0.5 | 6,:1 5,:1 1:1 | 7,:2 #6:1 b3:0.5"),
                 ("可视化格式", "TITLE=小星星\nBPM=90\n1 1 5 5 6 6 5 - | 4 4 3 3 2 2 1 -"),
                 ("D-hydra 格式", "BPM 135\n小节 12 (3/4)\n  简谱  #6. 2\n  键位  N-# X\n  节奏  8   4"),
             };
@@ -219,3 +219,4 @@ public static class SelfTest
         return sb.ToString();
     }
 }
+

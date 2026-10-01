@@ -3,7 +3,7 @@ using System.Windows.Input;
 namespace HarmoPlay.Models;
 
 /// <summary>
-/// 固定音高模型（鼠鼠口琴谱规格）：
+/// 固定音高模型（AI 转谱规范）：
 ///   中音 1 = C4 = MIDI 60；1~7 = C D E F G A B；#/b 为半音升降；英文逗号 / 单引号 为低 / 高八度。
 ///   可演奏音域 C3~C6 = MIDI 48~84（37 个连续半音）。
 ///   物理按键：Z X C V B N M = 1~7，英文逗号键 = 1'；鼠标左键 = 降八度、中键 = 升半音、右键 = 升八度，
@@ -61,7 +61,7 @@ public static class PitchFingering
         return true;
     }
 
-    /// <summary>按鼠鼠口琴谱的固定指法表选择一个物理按法。</summary>
+    /// <summary>按固定指法表选择一个物理按法。</summary>
     public static (Key Key, MouseMod Mouse, string KeyName) FingeringFor(int midi, KeyMap map)
     {        string keyName;
         MouseMod mouse;
@@ -219,3 +219,5 @@ public static class PitchFingering
         _ => "本音",
     };
 }
+
+

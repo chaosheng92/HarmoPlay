@@ -6,7 +6,7 @@ public enum NotationKind
     /// <summary>直接按键记谱（三角洲可视化谱 / D-hydra）：b=左键(降八度)、#=中键(升半音)、^=右键(升八度)。</summary>
     Physical = 0,
 
-    /// <summary>固定音高记谱（鼠鼠口琴谱 JSON）：中音 1=C4=MIDI 60，#/b 是半音升降，,/ ' 是八度，由程序自动选指法。</summary>
+    /// <summary>固定音高记谱（JSON 曲谱）：中音 1=C4=MIDI 60，#/b 是半音升降，,/ ' 是八度，由程序自动选指法。</summary>
     Pitch = 1,
 }
 
@@ -42,3 +42,4 @@ public sealed class InterruptKey
         new InterruptKey { Key = "Tab", Memo = "打开背包" },
     };
 }
+

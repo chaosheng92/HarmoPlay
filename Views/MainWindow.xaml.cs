@@ -98,8 +98,26 @@ public partial class MainWindow : Window
         _interruptTimer.Tick += OnInterruptTick;
         _interruptTimer.Start();
 
-        // 命令行 --settings [分类序号]：启动后直接打开二级设置菜单
+        // 命令行：--locktest / --settings [分类序号]
         var argv = Environment.GetCommandLineArgs();
+
+        // --locktest：连续锁定/解锁并记录扩展样式（验证可以锁定回去）
+        if (argv.Any(a => a.Equals("--locktest", StringComparison.OrdinalIgnoreCase)))
+            Dispatcher.InvokeAsync(async () =>
+            {
+                ShowOverlay();
+                await Task.Delay(1200);
+                void LogEx(string tag) => Program.Trace(
+                    $"LOCKTEST {tag}: 设置锁定={_lib.Settings.Overlay.ClickThrough} 实时穿透={_overlay?.ClickThrough} 橙框解锁态={_overlay?.Canvas.Unlocked} ex={_overlay?.ExStyleHex}");
+                SetOverlayLocked(true); LogEx("① 锁定");
+                SetOverlayLocked(false); LogEx("② 解锁");
+                SetOverlayLocked(true); LogEx("③ 再锁定");
+                SetOverlayLocked(false); LogEx("④ 再解锁");
+                _reallyExit = true;
+                Close();
+            }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
+        // --settings：启动后直接打开二级设置菜单
         int si = Array.FindIndex(argv, a => a.Equals("--settings", StringComparison.OrdinalIgnoreCase));
         if (si >= 0)
         {
@@ -193,8 +211,8 @@ public partial class MainWindow : Window
 
     private void BuildUi()
     {
-        Title = "口琴谱演奏器 HarmoPlay v1.0";
-        TxtVersion.Text = "v1.0 · 数据目录 " + LibraryStore.DataDir;
+        Title = $"口琴谱演奏器 HarmoPlay v{Core.UpdateService.CurrentVersion}";
+        TxtVersion.Text = $"v{Core.UpdateService.CurrentVersion} · 数据目录 " + LibraryStore.DataDir;
 
         var p = _lib.Settings.Playback;
         TxtBpm.Text = "";
@@ -226,7 +244,7 @@ public partial class MainWindow : Window
         TxtSearchHint.Visibility = Visibility.Visible;
 
         // 记谱法
-        ComboNotation.ItemsSource = new[] { "直接按键（可视化谱 / D-hydra）", "固定音高（鼠鼠转谱规范，自动选指法）" };
+        ComboNotation.ItemsSource = new[] { "直接按键（可视化谱 / D-hydra）", "固定音高（自动选指法）" };
         ComboNotation.SelectedIndex = 0;
 
         // 悬浮窗：音游下落模式
@@ -627,14 +645,8 @@ public partial class MainWindow : Window
                 ToggleOverlayVisibility();
                 break;
             case DefaultHotkeys.LockOverlay:
-                if (_overlay != null)
-                {
-                    _overlay.ClickThrough = !_overlay.ClickThrough;
-                    _lib.Settings.Overlay.ClickThrough = _overlay.ClickThrough;
-                    LibraryStore.Save(_lib);
-                    _settingsWindow?.RefreshFromLibrary();
-                    SetStatus(_overlay.ClickThrough ? "悬浮窗已锁定（点击穿透）" : "悬浮窗已解锁：可以拖动 / Ctrl+滚轮缩放");
-                }
+                // 以设置为准切换，避免界面/实例状态不同步导致"只能解锁、锁不回去"
+                SetOverlayLocked(!_lib.Settings.Overlay.ClickThrough);
                 break;
             case DefaultHotkeys.ToggleWait:
                 ComboPlayMode.SelectedIndex = ComboPlayMode.SelectedIndex == 1 ? 0 : 1;
@@ -835,7 +847,7 @@ public partial class MainWindow : Window
     {
         var dlg = new OpenFileDialog
         {
-            Title = "选择「鼠鼠口琴谱」的 library.json（或 catalog-v1.json 缓存）",
+            Title = "选择外部曲库 library.json（或 catalog-v1.json 缓存）",
             Filter = "JSON 文件 (*.json)|*.json|所有文件 (*.*)|*.*",
             InitialDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HarmonicaMacro"),
         };
@@ -1129,6 +1141,34 @@ public partial class MainWindow : Window
             }
         }
 
+        // 关闭窗口：问一下是退出还是退到后台（托盘）
+        if (!_reallyExit)
+        {
+            int action = _lib.Settings.CloseAction;
+            if (action != 1 && action != 2)
+            {
+                var dlg = new ExitChoiceWindow { Owner = this };
+                if (dlg.ShowDialog() != true) { e.Cancel = true; return; }
+                action = dlg.Choice;
+                if (dlg.Remember)
+                {
+                    _lib.Settings.CloseAction = action;
+                    LibraryStore.Save(_lib);
+                }
+            }
+
+            if (action == 2)
+            {
+                e.Cancel = true;
+                HideToTray();
+                return;
+            }
+        }
+
+        _reallyExit = true;
+        _tray?.Dispose();
+        _tray = null;
+
         _engine.Stop();
         _engine.Dispose();
         Core.InputGuard.ReleaseEverything(KeyVirtualKeys(_lib.EffectiveKeyMap), "退出程序");
@@ -1136,6 +1176,49 @@ public partial class MainWindow : Window
         PersistOverlayBounds();
         LibraryStore.Save(_lib);
         base.OnClosing(e);
+    }
+
+    // ================================================================ 后台托盘
+
+    private TrayIcon? _tray;
+    private bool _reallyExit;
+
+    /// <summary>最小化到右下角托盘：隐藏主窗口，悬浮窗与热键继续工作。</summary>
+    private void HideToTray()
+    {
+        _tray ??= new TrayIcon(
+            "口琴谱演奏器：双击恢复窗口，右键可退出",
+            showWindow: ShowMainWindow,
+            toggleOverlay: ToggleOverlayVisibility,
+            playPause: TogglePlay,
+            stop: () => OnStop(this, new RoutedEventArgs()),
+            about: ShowAboutFromTray,
+            exit: () => { _reallyExit = true; Close(); });
+
+        Hide();
+        PersistOverlayBounds();
+        LibraryStore.Save(_lib);
+        SetStatus("已最小化到右下角托盘（热键仍然可用，双击托盘图标可恢复窗口）");
+        Program.Trace($"已最小化到托盘：主窗口可见={IsVisible}，悬浮窗可见={_overlay?.IsVisible}，托盘图标={_tray != null}");
+        _tray.ShowBalloon("口琴谱演奏器仍在后台运行",
+            "双击托盘图标恢复窗口；右键可显示 / 隐藏悬浮窗、播放暂停或退出。");
+    }
+
+    private void ShowMainWindow()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        ShowInTaskbar = true;
+        Activate();
+        Topmost = true;
+        Topmost = false;
+        SetStatus("已从托盘恢复窗口");
+    }
+
+    private void ShowAboutFromTray()
+    {
+        ShowMainWindow();
+        OnOpenSettings(7);   // 数据与关于
     }
 
     // ================================================================ 二级设置菜单入口
@@ -1161,6 +1244,8 @@ public partial class MainWindow : Window
             SetStatus = SetStatus,
             ShowOverlay = ShowOverlay,
             PanicRelease = () => OnPanicRelease(this, new RoutedEventArgs()),
+            SetOverlayLocked = SetOverlayLocked,
+            MinimizeToTray = () => { Close(); },
             RefreshMain = () =>
             {
                 ParseCurrent(updateEditorPreviewOnly: false);
@@ -1188,9 +1273,27 @@ public partial class MainWindow : Window
         SetStatus("设置已更新");
     }
 
-    /// <summary>把悬浮窗当前的位置/大小记回设置（拖动完、退出时调用）。</summary>
-    private void PersistOverlayBounds()
+    /// <summary>锁定 / 解锁悬浮窗（锁定 = 点击穿透不挡游戏；解锁 = 可拖动、可右键）。</summary>
+    private void SetOverlayLocked(bool locked)
     {
+        _lib.Settings.Overlay.ClickThrough = locked;
+        if (_overlay == null) ShowOverlay();          // 顺带确保悬浮窗存在
+        if (_overlay != null)
+        {
+            _overlay.ClickThrough = locked;
+            _overlay.RefreshLockVisual();
+            _overlay.Show();
+        }
+        LibraryStore.Save(_lib);
+        _settingsWindow?.RefreshFromLibrary();
+        SetStatus(locked
+            ? "悬浮窗已锁定：点击穿透，不挡游戏（Alt+L 解锁）"
+            : "悬浮窗已解锁：按住橙色拖动条移动，Ctrl+滚轮缩放；再按 Alt+L 即可锁定");
+        Program.Trace($"悬浮窗{(locked ? "锁定" : "解锁")}：ex={_overlay?.ExStyleHex} 设置值={_lib.Settings.Overlay.ClickThrough}");
+    }
+
+    /// <summary>把悬浮窗当前的位置/大小记回设置（拖动完、退出时调用）。</summary>
+    private void PersistOverlayBounds()    {
         if (_overlay == null) return;
         var o = _lib.Settings.Overlay;
         o.Left = _overlay.Left;
@@ -1239,6 +1342,11 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
+
+
+
+
 
 
 

@@ -23,6 +23,10 @@ public sealed class SettingsContext
     public required Action<string> SetStatus { get; init; }
     public required Action ShowOverlay { get; init; }
     public required Action PanicRelease { get; init; }
+    /// <summary>锁定 / 解锁悬浮窗。</summary>
+    public required Action<bool> SetOverlayLocked { get; init; }
+    /// <summary>立刻最小化到右下角托盘。</summary>
+    public required Action MinimizeToTray { get; init; }
     /// <summary>让主窗口重新解析预览、刷新工具条与右侧面板。</summary>
     public required Action RefreshMain { get; init; }
 }
@@ -66,10 +70,27 @@ public partial class SettingsWindow : Window
 
     private void OnPanicRelease(object sender, RoutedEventArgs e) => _ctx.PanicRelease();
 
+    private void OnCloseActionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        _lib.Settings.CloseAction = Math.Clamp(ComboCloseAction.SelectedIndex, 0, 2);
+        LibraryStore.Save(_lib);
+        SetStatus(_lib.Settings.CloseAction switch
+        {
+            1 => "关闭窗口时将直接退出程序",
+            2 => "关闭窗口时将最小化到右下角托盘（图标留在通知区域）",
+            _ => "关闭窗口时每次询问",
+        });
+    }
+
+    private void OnMinimizeToTray(object sender, RoutedEventArgs e) => _ctx.MinimizeToTray();
+
     /// <summary>把设置读进界面（打开设置窗口时、以及恢复默认后调用）。</summary>
     public void LoadFromLibrary()
     {
         _loading = true;
+        ComboCloseAction.ItemsSource = new[] { "每次询问我", "直接退出程序", "最小化到右下角托盘" };
+        ComboCloseAction.SelectedIndex = Math.Clamp(_lib.Settings.CloseAction, 0, 2);
         TxtVersionInfo.Text = $"当前版本 {Core.UpdateService.CurrentVersion}　更新来源：仓库中的 update.json";
         TxtDataPath.Text = LibraryStore.DataDir;
 
@@ -97,6 +118,7 @@ public partial class SettingsWindow : Window
         ChkJudgmentLine.IsChecked = o.ShowJudgmentLine;
         ChkFallKeyHint.IsChecked = o.ShowFallKeyHint;
         RefreshOverlayPosBoxes();
+        RefreshLockButton();
 
         _hotkeyRows.Clear();
         foreach (var h in _lib.Settings.Hotkeys)
@@ -504,14 +526,17 @@ private void OnSetOverlayHotkey2(object sender, RoutedEventArgs e)
 
 private void OnUnlockOverlay(object sender, RoutedEventArgs e)
     {
-        if (_overlay == null) ShowOverlay();
-        if (_overlay == null) return;
-        _overlay.ClickThrough = false;
-        _lib.Settings.Overlay.ClickThrough = false;
-        ChkOverlayClickThrough.IsChecked = false;
-        _overlay.Show();
-        SetStatus("悬浮窗已解锁：拖动窗口移动，Ctrl+滚轮缩放，Alt+L 锁定");
-        LibraryStore.Save(_lib);
+        bool lockedNow = _lib.Settings.Overlay.ClickThrough;   // true = 当前锁定 → 点完变解锁
+        _ctx.SetOverlayLocked(!lockedNow);
+        ChkOverlayClickThrough.IsChecked = !lockedNow;
+        RefreshLockButton();
+    }
+
+    private void RefreshLockButton()
+    {
+        BtnLockOverlay.Content = _lib.Settings.Overlay.ClickThrough
+            ? "解锁悬浮窗（可拖动 / 缩放）"
+            : "锁定悬浮窗（点击穿透，不挡游戏）";
     }
 
 private void OnUpdateUrlChanged(object sender, TextChangedEventArgs e)
@@ -672,5 +697,7 @@ private void SyncOverlaySettingsFromWindow()
         SettingsTabs.SelectedIndex = Math.Clamp(index, 0, SettingsTabs.Items.Count - 1);
 
 }
+
+
 
 

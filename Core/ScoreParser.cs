@@ -32,7 +32,7 @@ public sealed class ParsedScore
     public double Bpm { get; set; }
     public string Meter { get; set; } = "4/4";
     public string Format { get; set; } = "简谱";
-    /// <summary>记谱法：固定音高（鼠鼠）或直接按键（可视化 / D-hydra）。</summary>
+    /// <summary>记谱法：固定音高或直接按键（可视化 / D-hydra）。</summary>
     public NotationKind Notation { get; set; } = NotationKind.Physical;
     public List<ScoreNote> Notes { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
@@ -53,7 +53,7 @@ public sealed class ParsedScore
     }
 }
 
-/// <summary>简谱文本解析：兼容「鼠鼠口琴谱」与「三角洲可视化/D-hydra」两类谱面。</summary>
+/// <summary>简谱文本解析：兼容两类谱面（固定音高 / 三角洲可视化、D-hydra 键位谱）。</summary>
 public static class ScoreParser
 {
     private static readonly Regex TokenRx = new(
@@ -456,3 +456,5 @@ public static class ScoreParser
         return sb.ToString().TrimEnd() + Environment.NewLine;
     }
 }
+
+

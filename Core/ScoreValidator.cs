@@ -25,7 +25,7 @@ public sealed class ValidationReport
     public override string ToString()
     {
         var sb = new StringBuilder();
-        sb.AppendLine("曲谱校验报告（鼠鼠口琴谱转谱规范 第十一节）");
+        sb.AppendLine("曲谱校验报告（转谱规范 第十一节）");
         sb.AppendLine("文件：" + FileName);
         sb.AppendLine("结果：" + (Ok ? "✅ 通过" : "❌ 未通过"));
         sb.AppendLine();
@@ -305,3 +305,4 @@ public static class ScoreValidator
         if (unplayable > 0) report.Error($"有 {unplayable} 个音超出 C3~C6，必须整体移调后再交付。");
     }
 }
+

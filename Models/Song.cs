@@ -11,7 +11,7 @@ public sealed class SongFolder
     public override string ToString() => Name;
 }
 
-/// <summary>一首曲谱。Score 为简谱文本（兼容鼠鼠口琴谱与三角洲可视化曲谱格式）。</summary>
+/// <summary>一首曲谱。Score 为简谱文本（兼容固定音高与三角洲可视化曲谱格式）。</summary>
 public sealed class Song
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -24,7 +24,7 @@ public sealed class Song
     public bool Enabled { get; set; } = true;
     public string Source { get; set; } = "本地";
     public string Memo { get; set; } = "";
-    /// <summary>记谱法："physical"（直接按键）或 "pitch"（固定音高，鼠鼠转谱规范）。</summary>
+    /// <summary>记谱法："physical"（直接按键）或 "pitch"（固定音高，AI 转谱规范）。</summary>
     public string Notation { get; set; } = "physical";
 
     [JsonIgnore]
@@ -159,6 +159,9 @@ public sealed class AppSettings
     public bool AutoPlayAccepted { get; set; }
     /// <summary>用户勾选了"以后不再提醒"。</summary>
     public bool AutoPlayWarnDisabled { get; set; }
+
+    /// <summary>点右上角关闭时的行为：0 = 每次询问，1 = 直接退出，2 = 最小化到后台托盘。</summary>
+    public int CloseAction { get; set; }
 }
 
 public static class DefaultHotkeys
@@ -217,3 +220,6 @@ public static class HotkeyActions
         _ => action
     };
 }
+
+
+

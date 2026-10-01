@@ -133,7 +133,7 @@ public static class Cli
 
           HarmoPlay.exe                 启动图形界面
           --selftest                    运行自检并写出 selftest.log
-          --import <文件|目录>          导入曲谱（鼠鼠口琴谱 library.json / 简谱 txt / 目录内全部 txt）
+          --import <文件|目录>          导入曲谱（library.json / 简谱 txt / 目录内全部 txt）
           --validate <曲名.json>        按转谱规范校验 AI 生成的曲谱文件
           --checkupdate                 检查更新（结果写到 update-check.log）
           --inputtest                   输入注入自检（判断"自动弹奏为什么没反应"）
@@ -145,7 +145,7 @@ public static class Cli
         简谱格式说明（自动识别三种）：
           1) 三角洲可视化曲谱：TITLE=曲名 / BPM=90 / 1 2 3 4 5 6 7 8 / 5 - 延长 / 0 休止 / | 小节线
              变调前缀：b 降调(左键)  # 半音(中键)  ^ 升调(右键)  #b 半+降  #^ 半+升
-          2) 鼠鼠口琴谱：1:0.5 #6:1 b3:0.5（音:拍数）','=低八度 '''=高八度
+          2) 固定音高：1:0.5 #6:1 b3:0.5（音:拍数）','=低八度 '''=高八度
           3) D-hydra 键位谱：含「键位 / 节奏」两列，自动识别
 
         演奏快捷键（可在「键位与设置」里改）：
@@ -154,3 +154,5 @@ public static class Cli
           Alt+4~9 快捷曲 1~6
         """;
 }
+
+

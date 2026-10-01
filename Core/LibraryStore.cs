@@ -203,7 +203,7 @@ public static class LibraryStore
 
     // ------------------------------------------------------------ 导入
 
-    /// <summary>导入「鼠鼠口琴谱」的 library.json / catalog 缓存。</summary>
+    /// <summary>导入外部曲库的 library.json / catalog 缓存。</summary>
     public static (int imported, int skipped, string message) ImportSquirrelLibrary(Library lib, string path)
     {
         int imported = 0, skipped = 0;
@@ -256,7 +256,7 @@ public static class LibraryStore
                     Bpm = ReadDouble(s["Bpm"], 90),
                     Meter = s["Meter"]?.GetValue<string>() ?? "4/4",
                     Enabled = !(s["Enabled"] is JsonValue ev) || ReadBool(ev, true),
-                    Source = "导入·鼠鼠口琴谱",
+                    Source = "导入·外部曲库",
                     Notation = "pitch",
                 });
                 imported++;
@@ -418,3 +418,5 @@ public static class LibraryStore
         return obj.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
     }
 }
+
+

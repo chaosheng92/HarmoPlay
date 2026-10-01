@@ -66,7 +66,7 @@
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                        <Button Content="解锁拖动（Alt+L）" Click="OnUnlockOverlay"/>
+                                        <Button x:Name="BtnLockOverlay" Content="解锁悬浮窗（可拖动 / 缩放）" Click="OnUnlockOverlay"/>
                                         <Button Content="复位位置" Click="OnResetOverlayPosition"/>
                                         <Button Content="预览悬浮窗" Click="OnPreviewOverlay"/>
                                     </StackPanel>
@@ -291,20 +291,27 @@
 <GroupBox Header="数据">
                                 <StackPanel>
                                     <TextBlock x:Name="TxtDataPath" FontSize="12" Foreground="#8FA0B5"/>
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,4"
+                                               Text="点右上角关闭窗口时"/>
+                                    <ComboBox x:Name="ComboCloseAction" Width="260" HorizontalAlignment="Left"
+                                              SelectionChanged="OnCloseActionChanged"
+                                              ToolTip="退到后台后程序继续运行，托盘图标留在屏幕右下角（通知区域）"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                         <Button Content="打开数据目录" Click="OnOpenDataDir"/>
                                         <Button Content="保存全部设置" Style="{StaticResource PrimaryButton}" Click="OnSaveAll"/>
                                         <Button Content="恢复默认设置" Click="OnResetSettings"/>
                                     </StackPanel>
+                                    <Button Content="现在最小化到托盘试试" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                            Click="OnMinimizeToTray"/>
                                 </StackPanel>
                             </GroupBox>
 <GroupBox Header="关于">
                                 <StackPanel>
-                                    <TextBlock Text="口琴谱演奏器 HarmoPlay v1.0" FontWeight="SemiBold"/>
+                                    <TextBlock Text="口琴谱演奏器 HarmoPlay" FontWeight="SemiBold"/>
                                     <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#9AA4B5"
                                                Text="本地离线版：曲谱库 + 简谱编辑 + 自动演奏 + 悬浮窗键位提示 + 可配置键位映射。"/>
                                     <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#9AA4B5"
-                                               Text="兼容「鼠鼠口琴谱」的 library.json 曲谱库，以及三角洲口琴可视化曲谱 / D-hydra 键位谱格式。"/>
+                                               Text="__DELETE_LINE__"/>
                                     <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#FFD23F"
                                                Text="在游戏内使用时，请以管理员身份运行本程序，否则部分游戏会忽略模拟按键。"/>
                                 </StackPanel>
@@ -321,4 +328,7 @@
         </StackPanel>
     </Grid>
 </Window>
+
+
+
 

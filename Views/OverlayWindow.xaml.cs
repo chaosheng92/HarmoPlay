@@ -49,6 +49,17 @@ public partial class OverlayWindow : Window
         Surface.InvalidateVisual();
     }
 
+    /// <summary>当前窗口扩展样式（0x20 = 点击穿透，诊断用）。</summary>
+    public string ExStyleHex => "0x" + GetWindowLong(new WindowInteropHelper(this).Handle, GWL_EXSTYLE).ToString("X8");
+
+    /// <summary>让"锁定 / 解锁"的视觉提示（橙色边框、拖动条、右键菜单文案）与当前状态一致。</summary>
+    public void RefreshLockVisual()
+    {
+        Surface.Unlocked = !_clickThrough;
+        UpdateMenuHeaders();
+        ApplyClickThrough();
+    }
+
     private void OnMenuLock(object sender, RoutedEventArgs e)
     {
         ClickThrough = !ClickThrough;
@@ -94,6 +105,7 @@ public partial class OverlayWindow : Window
         {
             _clickThrough = value;
             ApplyClickThrough();
+            UpdateMenuHeaders();
             SettingsChanged?.Invoke(this, EventArgs.Empty);
         }
     }

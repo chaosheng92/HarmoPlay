@@ -57,7 +57,7 @@
                           SelectionChanged="OnOverlayModeBarChanged"
                           ToolTip="音游下落：音符按节奏从上方落到判定线；经典堆叠：音符块从下往上堆（Alt+M 也能切换）"/>
                 <Border Width="1" Background="{StaticResource Line}" Margin="6,2,14,2"/>
-                <Button Content="导入鼠鼠口琴谱曲库" Click="OnImportSquirrel"/>
+                <Button Content="导入外部曲库" Click="OnImportSquirrel"/>
                 <Button Content="导入曲谱文件…" Click="OnImportFiles"/>
                 <Button Content="新建曲谱" Click="OnNewSong"/>
                 <Border Width="1" Background="{StaticResource Line}" Margin="6,2,14,2"/>
@@ -280,7 +280,7 @@
                             <StackPanel Orientation="Horizontal" Margin="12,0,0,0">
                                 <TextBlock Text="记谱法" VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <ComboBox x:Name="ComboNotation" Width="170" SelectionChanged="OnNotationChanged"
-                                          ToolTip="固定音高：1=C4，#/b 是半音、,/ ' 是八度，程序自动选指法（鼠鼠转谱规范）／直接按键：前缀就是鼠标键（三角洲可视化谱）"/>
+                                          ToolTip="固定音高：1=C4，#/b 是半音、,/ ' 是八度，程序自动选指法／直接按键：前缀就是鼠标键（三角洲可视化谱）"/>
                             </StackPanel>
                         </WrapPanel>
                     </Border>
@@ -362,4 +362,6 @@
         </Border>
     </Grid>
 </Window>
+
+
 
