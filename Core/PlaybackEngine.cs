@@ -433,15 +433,23 @@ public sealed class PlaybackEngine : IDisposable
             : _options.FollowTimeoutSeconds <= 0 ? double.MaxValue : _options.FollowTimeoutSeconds * 1000.0;
         double waited = 0;
         string? lastWrong = null;
+        // 每个音都要求"新的一次按下"：如果本音要的键此刻已经被按住（上一个音还没松手），
+        // 必须先松开再按才算数 —— 否则会出现"上个音没松手，后面的同键音也算对"。
+        bool needFreshPress = chord.IsKeyHeldByUser();
         Program.Trace($"跟谱等待：第 {index + 1} 个音「{note.Raw}」应弹 {chord.Text}" +
-                      $"（新手={_options.BeginnerMode} 超时={(timeoutMs > 1e12 ? "永不跳过" : timeoutMs / 1000 + "秒")}）");
+                      $"（新手={_options.BeginnerMode} 超时={(timeoutMs > 1e12 ? "永不跳过" : timeoutMs / 1000 + "秒")}" +
+                      (needFreshPress ? " 需要先松开当前按键" : "") + "）");
 
         while (!_stop)
         {
             if (_pause && !_gate.Wait(50)) continue;
             if (_stop) return false;
 
-            bool hit = _options.FollowStrictKey ? chord.IsHeldByUser() : chord.IsKeyHeldByUser();
+            bool stillHoldingFromBefore = needFreshPress && chord.IsKeyHeldByUser();
+            if (!stillHoldingFromBefore) needFreshPress = false;
+
+            bool hit = !stillHoldingFromBefore
+                       && (_options.FollowStrictKey ? chord.IsHeldByUser() : chord.IsKeyHeldByUser());
             if (hit)
             {
                 // 按对的一瞬间就解冻：谱面立刻继续往前走，这样你能看出这个音要按多久
@@ -600,8 +608,10 @@ public sealed class PlaybackEngine : IDisposable
     /// <summary>等用户松开，避免同一次按键被下一个音重复计数。</summary>
     private void WaitRelease(Chord chord)
     {
+        // 等用户松开（最多 6 秒，避免卡住）；即使超时，下一个音也会因为
+        // "必须重新按下"的判定而要求一次新的按键。
         int guard = 0;
-        while (!_stop && chord.IsKeyHeldByUser() && guard++ < 250)
+        while (!_stop && chord.IsKeyHeldByUser() && guard++ < 750)
             Thread.Sleep(8);
     }
 
