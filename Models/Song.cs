@@ -106,6 +106,14 @@ public sealed class PlaybackOptions
     /// <summary>是否真的模拟按键。练习模式设为 false：按时间轴走 + 只读取按键判定，绝不注入。</summary>
     public bool SimulateKeys { get; set; } = true;
 
+    // ---- 新手模式（演奏模式用） ----
+    /// <summary>新手模式：必须按对当前的音才继续，按错就停在那里等（永不跳过），也不发送任何按键。</summary>
+    public bool BeginnerMode { get; set; }
+    /// <summary>新手模式第一遍的速度倍率（1.0 = 直接用你设定的速度）。</summary>
+    public double BeginnerStartSpeed { get; set; } = 1.0;
+    /// <summary>新手模式每完成一遍提速多少（0 = 不自动提速）。</summary>
+    public double BeginnerSpeedStep { get; set; }
+
     // ---- 跟谱弹奏的细节 ----
     /// <summary>严格判定：必须按对琴键（带变调的音还要求按对鼠标键）。关掉则按任意琴键都算过。</summary>
     public bool FollowStrictKey { get; set; } = true;
@@ -122,7 +130,7 @@ public sealed class PlaybackOptions
     public bool SuppressMouseModifiers { get; set; }
 
     [JsonIgnore]
-    public string ModeText => !SimulateKeys ? "练习判定" : WaitForInput ? "跟谱弹奏" : "自动弹奏";
+    public string ModeText => !SimulateKeys ? "练习判定" : BeginnerMode ? "新手模式" : WaitForInput ? "跟谱弹奏" : "自动弹奏";
 
     public PlaybackOptions Clone() => (PlaybackOptions)MemberwiseClone();
 }

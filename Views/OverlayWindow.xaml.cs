@@ -381,7 +381,13 @@ public sealed class OverlayCanvas : FrameworkElement
         var mode = Settings.Mode == 1 ? "音游下落" : "经典堆叠";
         var play = Playback is { IsRunning: true } && Playback.Notation == NotationKind.Pitch ? "" : "";
         _ = play;
-        var modeName = Playback?.FollowMode == true ? "跟谱" : "自动";
+        var modeName = Playback switch
+        {
+            null => "自动",
+            { BeginnerModeActive: true } => "新手",
+            { FollowMode: true } => "跟谱",
+            _ => "自动",
+        };
         var index = Playback is { IsRunning: true } ? Playback.CurrentIndex : CurrentIndex;
         var pos = Score != null && Score.Notes.Count > 0 ? $"{Math.Max(index + 1, 0)}/{Score.Notes.Count}" : "";
 
@@ -685,4 +691,5 @@ public sealed class OverlayCanvas : FrameworkElement
         }
     }
 }
+
 

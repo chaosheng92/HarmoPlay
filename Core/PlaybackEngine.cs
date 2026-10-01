@@ -22,6 +22,16 @@ public sealed class PlaybackEngine : IDisposable
     private NotationKind _notation = NotationKind.Physical;
     private double _beatMs = 500;
 
+    /// <summary>用户设定的目标速度（新手模式会从更慢的速度逐遍逼近它）。</summary>
+    private double _speedTarget = 1.0;
+    /// <summary>当前这一遍实际用的速度倍率。</summary>
+    public double CurrentSpeed { get; private set; } = 1.0;
+    /// <summary>新手模式：已经检查过的音符数（只统计"有没有跟着按"，不判定对错）。</summary>
+    public int BeginnerChecked { get; private set; }
+    /// <summary>新手模式：用户在音长内跟着按对了的音符数。</summary>
+    public int BeginnerFollowed { get; private set; }
+    public double BeginnerFollowRate => BeginnerChecked == 0 ? 0 : BeginnerFollowed * 100.0 / BeginnerChecked;
+
     private Chord _pressed = Chord.Empty;
     private int _inProgress = -1;
 
@@ -95,6 +105,8 @@ public sealed class PlaybackEngine : IDisposable
     public NotationKind Notation => _notation;
     /// <summary>是否处于跟谱弹奏模式。</summary>
     public bool FollowMode => _options.WaitForInput;
+    /// <summary>是否处于新手模式（按对才继续、永不跳过）。</summary>
+    public bool BeginnerModeActive => _options.BeginnerMode;
     /// <summary>开播倒计时剩余秒数（0 = 没在倒计时），供悬浮窗显示大字。</summary>
     public int CountdownValue { get; private set; }
     /// <summary>一拍多少毫秒（已计入速度倍率），供悬浮窗下落模式换算坐标。</summary>
@@ -130,7 +142,14 @@ public sealed class PlaybackEngine : IDisposable
         _notation = notation;
         _bpm = bpm <= 0 ? 90 : bpm;
         _options = options.Clone();
-        _beatMs = 60000.0 / _bpm / Math.Max(0.05, _options.Speed);
+        _speedTarget = Math.Max(0.2, _options.Speed);
+        // 新手模式：从较慢的速度起步，每一遍自动加速一点，直到用户设定的目标速度
+        CurrentSpeed = _options.BeginnerMode
+            ? Math.Min(_speedTarget, Math.Max(0.3, _options.BeginnerStartSpeed))
+            : _speedTarget;
+        BeginnerChecked = 0;
+        BeginnerFollowed = 0;
+        _beatMs = 60000.0 / _bpm / CurrentSpeed;
         TotalMs = notes.Count == 0 ? 0 : (notes[^1].StartBeat + notes[^1].Beats) * _beatMs;
         _stop = false;
         _pause = false;
@@ -304,7 +323,15 @@ public sealed class PlaybackEngine : IDisposable
                     NoteStarted?.Invoke(i);
 
                     double holdEnd = endMs - _options.GapMs;
-                    if (!WaitUntil(Math.Max(holdEnd, startMs + Math.Max(_options.MinHoldMs, 0)))) return;
+                    double holdTarget = Math.Max(holdEnd, startMs + Math.Max(_options.MinHoldMs, 0));
+
+                    if (_options.BeginnerMode)
+                    {
+                        // 新手模式：程序照常按键，同时在音长里观察用户有没有跟着按（只统计，不判定）
+                        BeginnerChecked++;
+                        if (!WaitHoldAndWatchUser(chord, holdTarget)) return;
+                    }
+                    else if (!WaitUntil(holdTarget)) return;
 
                     bool chain = _options.LegatoSameKey && i + 1 < _notes.Count
                                  && !_notes[i + 1].IsRest
@@ -323,9 +350,24 @@ public sealed class PlaybackEngine : IDisposable
                 ReleaseAll();
                 _pressed = Chord.Empty;
                 PassFinished?.Invoke(pass);
-                Status?.Invoke($"第 {pass} 遍完成");
+                Status?.Invoke(_options.BeginnerMode
+                    ? $"第 {pass} 遍完成：跟上 {BeginnerFollowed}/{BeginnerChecked}" +
+                      (BeginnerChecked > 0 ? $"（{BeginnerFollowed * 100.0 / BeginnerChecked:0}%）" : "") +
+                      $"，当前速度 {CurrentSpeed:0.00}x"
+                    : $"第 {pass} 遍完成");
 
                 if (_options.RepeatTimes > 0 && pass >= _options.RepeatTimes) break;
+
+                // 新手模式：可选地每遍快一点（BeginnerSpeedStep > 0 才提速）
+                if (_options.BeginnerMode && _options.BeginnerSpeedStep > 0 && CurrentSpeed < _speedTarget - 0.001)
+                {
+                    CurrentSpeed = Math.Min(_speedTarget, CurrentSpeed + Math.Max(0.05, _options.BeginnerSpeedStep));
+                    _beatMs = 60000.0 / _bpm / Math.Max(0.05, CurrentSpeed);
+                    BeginnerChecked = 0;
+                    BeginnerFollowed = 0;
+                    Status?.Invoke($"新手模式：下一遍提速到 {CurrentSpeed:0.00}x（目标 {_speedTarget:0.00}x）");
+                }
+
                 if (!Sleep(600)) return;
             }
 
@@ -347,7 +389,10 @@ public sealed class PlaybackEngine : IDisposable
     private bool FollowPlay(ScoreNote note, Chord chord, int index)
     {
         Status?.Invoke($"跟谱弹奏：请弹 {chord.Detail}");
-        double timeoutMs = _options.FollowTimeoutSeconds <= 0 ? double.MaxValue : _options.FollowTimeoutSeconds * 1000.0;
+        // 新手模式：永不跳过（一直等你按对）；普通跟谱：按设定超时跳过
+        double timeoutMs = _options.BeginnerMode
+            ? double.MaxValue
+            : _options.FollowTimeoutSeconds <= 0 ? double.MaxValue : _options.FollowTimeoutSeconds * 1000.0;
         double waited = 0;
         string? lastWrong = null;
 
@@ -439,6 +484,31 @@ public sealed class PlaybackEngine : IDisposable
         FollowMissed++;
         FollowJudged?.Invoke(index, "miss", "没按");
         return true;
+    }
+
+    /// <summary>等到 holdTarget，同时在音长里观察用户有没有跟着按对（新手模式：只统计不判定）。</summary>
+    private bool WaitHoldAndWatchUser(Chord chord, double holdTarget)
+    {
+        bool followed = false;
+        while (true)
+        {
+            if (_stop) return false;
+            if (_pause && !_gate.Wait(20)) continue;
+
+            if (!followed && chord.IsKeyHeldByUser())
+            {
+                followed = true;
+                BeginnerFollowed++;
+            }
+
+            double now = _watch.Elapsed.TotalMilliseconds - _timelineOffsetMs - _pauseOffsetMs;
+            double remain = holdTarget - now;
+            if (remain <= 0) return true;
+            if (!followed && remain > 4) Thread.Sleep(4);
+            else if (remain > 16) Thread.Sleep(4);
+            else if (remain > 2) Thread.Sleep(1);
+            else Thread.SpinWait(150);
+        }
     }
 
     /// <summary>按住整拍判定：按不够就记一次"漏"。</summary>
@@ -567,3 +637,4 @@ public sealed class PlaybackEngine : IDisposable
         _gate.Dispose();
     }
 }
+

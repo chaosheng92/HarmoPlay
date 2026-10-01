@@ -110,6 +110,7 @@ public partial class MainWindow
     public void RunPracticeTest(string mode)
     {
         var wait = !mode.Equals("time", StringComparison.OrdinalIgnoreCase);
+        var beginner = mode.Equals("beginner", StringComparison.OrdinalIgnoreCase);
         var parsed = ScoreParser.Parse("1 2 3 4 5 6 7 1' 1 2 3 4", "练习自检", 240, NotationKind.Pitch);
         InputSender.ResetCounter();
 
@@ -124,7 +125,9 @@ public partial class MainWindow
             SimulateKeys = false,
             FollowStrictKey = true,
             FollowCountErrors = true,
-            FollowTimeoutSeconds = 0,
+            // beginner：故意设 2 秒超时，用来验证"新手模式永不跳过"（超时必须被忽略）
+            FollowTimeoutSeconds = beginner ? 2 : 0,
+            BeginnerMode = beginner,
         };
 
         int started = 0, ok = 0, miss = 0, wrong = 0;

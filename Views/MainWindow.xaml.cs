@@ -231,6 +231,7 @@ public partial class MainWindow : Window
         ComboPlayMode.SelectedIndex = 1;
         _loading = false;
         _lib.Settings.Playback.WaitForInput = true;
+        _lib.Settings.Playback.BeginnerMode = false;
         TxtPlayMode.Text = _lib.Settings.Playback.ModeText;
         LibraryStore.Save(_lib);
         RefreshFollowStats();
@@ -246,8 +247,8 @@ public partial class MainWindow : Window
         var p = _lib.Settings.Playback;
         TxtBpm.Text = "";
         SldSpeed.Value = Math.Clamp(p.Speed, 0.2, 2.0);
-        ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（等你按键）" };
-        ComboPlayMode.SelectedIndex = p.WaitForInput ? 1 : 0;
+        ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（等你按键）", "新手模式（按对才继续，永不跳过）" };
+        ComboPlayMode.SelectedIndex = p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0;
         ComboOverlayModeBar.ItemsSource = new[] { "经典堆叠", "音游下落" };
         ComboOverlayModeBar.SelectedIndex = _lib.Settings.Overlay.Mode == 1 ? 1 : 0;
         TxtSpeed.Text = p.Speed.ToString("0.00") + "x";
@@ -258,8 +259,8 @@ public partial class MainWindow : Window
         ChkLegato.IsChecked = p.LegatoSameKey;
 
         // 演奏方式：自动弹奏 / 跟谱弹奏
-        ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（等你按键）" };
-        ComboPlayMode.SelectedIndex = p.WaitForInput ? 1 : 0;
+        ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（等你按键）", "新手模式（按对才继续，永不跳过）" };
+        ComboPlayMode.SelectedIndex = p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0;
         TxtPlayMode.Text = p.ModeText;
 
 
@@ -428,7 +429,9 @@ public partial class MainWindow : Window
         p.CountdownSeconds = ParseInt(TxtCountdown.Text, p.CountdownSeconds, 0, 30);
         p.RepeatTimes = ParseInt(TxtRepeat.Text, p.RepeatTimes, 0, 999);
         p.LegatoSameKey = ChkLegato.IsChecked == true;
-        p.WaitForInput = ComboPlayMode.SelectedIndex == 1;
+        p.WaitForInput = ComboPlayMode.SelectedIndex is 1 or 2;
+        p.BeginnerMode = ComboPlayMode.SelectedIndex == 2;
+        if (p.BeginnerMode) p.FollowTimeoutSeconds = 0;   // 新手模式永不跳过
 
         return p;
     }
@@ -598,22 +601,43 @@ public partial class MainWindow : Window
     private void OnPlayModeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
-        bool follow = ComboPlayMode.SelectedIndex == 1;
+        int mode = Math.Clamp(ComboPlayMode.SelectedIndex, 0, 2);
+        bool follow = mode is 1 or 2;          // 跟谱 / 新手 都不发送按键，必须等用户按对
+        bool beginner = mode == 2;
 
         // 开启自动弹奏前必须经过风险确认；不同意就留在跟谱弹奏
-        if (!follow && !ConfirmAutoPlay(switching: true))
+        if (mode == 0 && !ConfirmAutoPlay(switching: true))
         {
             ForceFollowMode();
             return;
         }
 
-        _lib.Settings.Playback.WaitForInput = follow;
-        TxtPlayMode.Text = _lib.Settings.Playback.ModeText;
+        var p = _lib.Settings.Playback;
+        p.WaitForInput = follow;
+        p.BeginnerMode = beginner;
+        if (beginner)
+        {
+            p.FollowStrictKey = true;          // 必须按对才算过
+            p.FollowTimeoutSeconds = 0;        // 永不跳过：点不对就不继续
+            p.SimulateKeys = true;
+            // 新手默认放慢一点，方便跟手（可随时在右边「速度」里改回去）
+            if (p.Speed > 0.8)
+            {
+                p.Speed = 0.8;
+                _loading = true;
+                SldSpeed.Value = 0.8;
+                TxtSpeed.Text = "0.80x";
+                _loading = false;
+            }
+        }
+        TxtPlayMode.Text = p.ModeText;
         LibraryStore.Save(_lib);
 
-        SetStatus(follow
-            ? "已切换到「跟谱弹奏」：程序不发按键，等你按对当前的音再走下一个（Alt+T 切换）"
-            : "已切换到「自动弹奏」：程序按 BPM 自动按键弹完整首（Alt+T 切换）");
+        SetStatus(beginner
+            ? "已切换到「新手模式」：不发送按键，必须按对当前的音才继续，按错就停在这里等（永不跳过）"
+            : follow
+                ? "已切换到「跟谱弹奏」：程序不发按键，等你按对当前的音再走下一个（Alt+T 切换）"
+                : "已切换到「自动弹奏」：程序按 BPM 自动按键弹完整首（Alt+T 切换）");
 
         // 播放中切换需要重建引擎参数，直接重开一遍
         if (_engine.IsRunning)
@@ -681,7 +705,13 @@ public partial class MainWindow : Window
                 SetOverlayLocked(!_lib.Settings.Overlay.ClickThrough);
                 break;
             case DefaultHotkeys.ToggleWait:
-                ComboPlayMode.SelectedIndex = ComboPlayMode.SelectedIndex == 1 ? 0 : 1;
+                // Alt+T 在 自动 → 跟谱 → 新手 之间循环
+                ComboPlayMode.SelectedIndex = ComboPlayMode.SelectedIndex switch
+                {
+                    0 => 1,
+                    1 => 2,
+                    _ => 0,
+                };
                 break;
             case DefaultHotkeys.PanicRelease:
                 OnPanicRelease(this, new RoutedEventArgs());
@@ -1488,6 +1518,7 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
 
 
 
