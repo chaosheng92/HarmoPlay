@@ -99,7 +99,7 @@ public static class Cli
     {
         var lib = Core.LibraryStore.Load();
         var file = Core.Diagnostics.Export(lib);
-        return "诊断包已导出：\n" + file + "\n\n把它附到 GitHub Issue 即可（不含曲谱内容）。\n\n" + Core.Diagnostics.Build(lib);
+        return "诊断包已导出：\n" + file + "\n\n把它发到抖音主页私信或 QQ 群里即可（不含曲谱内容）。\n\n" + Core.Diagnostics.Build(lib);
     }
 
     public static string ExportDocs(string dir)

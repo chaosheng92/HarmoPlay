@@ -264,7 +264,7 @@
             <TabItem Header="更新与反馈">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,10,4,10">
                     <StackPanel>
-<GroupBox Header="更新与问题反馈">
+<GroupBox Header="更新与反馈">
                                 <StackPanel>
                                     <TextBlock x:Name="TxtVersionInfo" FontSize="12" Foreground="#9AA4B5"/>
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
@@ -275,13 +275,14 @@
                                     <WrapPanel Margin="0,8,0,0">
                                         <Button Content="检查更新" Style="{StaticResource PrimaryButton}" Click="OnCheckUpdate"/>
                                         <Button Content="打开下载页" Click="OnOpenDownloadPage"/>
-                                        <Button Content="反馈问题（GitHub Issues）" Click="OnOpenIssues"/>
+                                        <Button Content="打开抖音主页" Click="OnOpenDouyin"/>
+                                        <Button Content="复制 QQ 群号" Click="OnCopyQqGroup"/>
                                         <Button Content="导出诊断包" Click="OnExportDiagnostics"/>
-                                        <Button Content="打开反馈目录" Click="OnOpenFeedbackDir"/>
                                     </WrapPanel>
-                                    <TextBlock x:Name="TxtUpdateResult" FontSize="12" Foreground="#FFD23F" Margin="0,8,0,0"/>
+                                    <TextBlock x:Name="TxtContactInfo" FontSize="12" Foreground="#4CD964" Margin="0,8,0,0"/>
+                                    <TextBlock x:Name="TxtUpdateResult" FontSize="12" Foreground="#FFD23F" Margin="0,6,0,0"/>
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,6,0,0"
-                                               Text="诊断包里只有程序版本、系统信息、键位/悬浮窗设置和最近日志，不含你的曲谱内容；反馈时把它拖进 Issue 即可。"/>
+                                               Text="遇到问题请到抖音主页私信、或加 QQ 群反馈：先点「导出诊断包」，把它一起发过来即可。诊断包里只有程序版本、系统信息、键位/悬浮窗设置和最近日志，不含你的曲谱内容。"/>
                                 </StackPanel>
                             </GroupBox>
                     </StackPanel>
@@ -317,8 +318,11 @@
                                     <TextBlock Text="口琴谱演奏器 HarmoPlay" FontWeight="SemiBold"/>
                                     <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#9AA4B5"
                                                Text="本地离线版：曲谱库 + 简谱编辑 + 自动演奏 + 悬浮窗键位提示 + 可配置键位映射。"/>
-                                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#9AA4B5"
-                                               Text="__DELETE_LINE__"/>
+                                    <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#E6EAF2"
+                                               Text="作者：chaosheng"/>
+                                    <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="#9AA4B5" TextWrapping="Wrap"
+                                               Text="使用 / 二次分发 / 整合进自己的作品时，请在创作者页面注明作者 chaosheng 与本项目仓库地址（详见附带的开源声明）。"/>
+                                    <TextBlock x:Name="TxtAboutVersion" Margin="0,4,0,0" FontSize="12" Foreground="#9AA4B5"/>
                                     <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="#FFD23F"
                                                Text="在游戏内使用时，请以管理员身份运行本程序，否则部分游戏会忽略模拟按键。"/>
                                 </StackPanel>

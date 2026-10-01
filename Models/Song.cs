@@ -160,10 +160,24 @@ public sealed class AppSettings
     public int InterruptBehavior { get; set; }
     public int InterruptResumeDelayMs { get; set; } = 600;
 
-    // ---- 更新与反馈（仓库地址，上传 GitHub 后改这两处即可）----
-    public string UpdateUrl { get; set; } = "https://raw.githubusercontent.com/你的用户名/HarmoPlay/main/update.json";
-    public string DownloadUrl { get; set; } = "https://github.com/你的用户名/HarmoPlay/releases/latest";
-    public string IssuesUrl { get; set; } = "https://github.com/你的用户名/HarmoPlay/issues/new/choose";
+    // ---- 更新与反馈 ----
+    public string UpdateUrl { get; set; } = "https://raw.githubusercontent.com/chaosheng92/HarmoPlay/main/update.json";
+    public string DownloadUrl { get; set; } = "https://github.com/chaosheng92/HarmoPlay/releases/latest";
+    /// <summary>创作者署名（「数据与关于 → 关于」显示用，界面上是固定文案）。</summary>
+    public string Creator { get; set; } = "chaosheng";
+
+    // 反馈渠道的出厂默认值。用户设置里为空时（例如旧 settings.json 里存过空串）回退到这里，
+    // 保证界面上永远不会出现"未配置"。
+    public const string DefaultDouyinUrl = "https://v.douyin.com/yLjO__G6iY4/";
+    public const string DefaultDouyinId = "95219322540";
+    public const string DefaultQqGroup = "1107472697";
+
+    /// <summary>抖音主页地址（反馈渠道一，按钮=打开主页）。</summary>
+    public string DouyinUrl { get; set; } = DefaultDouyinUrl;
+    /// <summary>抖音号（显示用；短链失效时用户还能靠号码找到主页）。</summary>
+    public string DouyinId { get; set; } = DefaultDouyinId;
+    /// <summary>QQ 群号（反馈渠道二，按钮=复制群号）。</summary>
+    public string QqGroup { get; set; } = DefaultQqGroup;
     public DateTime? LastUpdateCheck { get; set; }
     public string LastUpdateResult { get; set; } = "";
 

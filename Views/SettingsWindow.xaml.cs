@@ -113,6 +113,8 @@ public partial class SettingsWindow : Window
         ComboCloseAction.SelectedIndex = Math.Clamp(_lib.Settings.CloseAction, 0, 2);
         TxtVersionInfo.Text = $"当前版本 {Core.UpdateService.CurrentVersion}　更新来源：仓库中的 update.json";
         TxtDataPath.Text = LibraryStore.DataDir;
+        TxtAboutVersion.Text = $"版本 v{Core.UpdateService.CurrentVersion}（build {Core.UpdateService.BuildStamp}）";
+        RefreshContactInfo();
 
         var p = _lib.Settings.Playback;
         ChkFollowStrict.IsChecked = p.FollowStrictKey;
@@ -280,7 +282,7 @@ private void OnExportDiagnostics(object sender, RoutedEventArgs e)
             var file = Core.Diagnostics.Export(_lib);
             SetStatus("诊断包已导出：" + file);
             MessageBox.Show("诊断包已导出（不含曲谱内容）：\n" + file +
-                            "\n\n反馈时把它拖进 GitHub Issue 即可。", "导出诊断包",
+                            "\n\n把它发到抖音主页私信或 QQ 群里即可。", "导出诊断包",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
@@ -395,18 +397,43 @@ private void OnOpenDataDir(object sender, RoutedEventArgs e)
 private void OnOpenDownloadPage(object sender, RoutedEventArgs e)
         => OpenUrl(string.IsNullOrWhiteSpace(_lastDownloadUrl) ? _lib.Settings.DownloadUrl : _lastDownloadUrl);
 
-private void OnOpenFeedbackDir(object sender, RoutedEventArgs e) => OpenUrl(Core.Diagnostics.FeedbackDir);
+    /// <summary>反馈渠道取值：设置为空时回退到出厂默认（旧 settings.json 里可能存过空串）。</summary>
+    private static string ContactOr(string? value, string fallback)
+        => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 
-private void OnOpenIssues(object sender, RoutedEventArgs e)
+    /// <summary>反馈渠道一：打开抖音主页。</summary>
+    private void OnOpenDouyin(object sender, RoutedEventArgs e)
     {
-        var url = _lib.Settings.IssuesUrl;
-        if (string.IsNullOrWhiteSpace(url) || url.Contains("你的用户名"))
-        {
-            MessageBox.Show("还没有配置 Issues 地址。\n\n上传 GitHub 后，在「键位与设置 → 更新与问题反馈」里把\n更新地址 / 下载页 / Issues 地址改成你自己的仓库地址即可。",
-                "反馈问题", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
+        var url = ContactOr(_lib.Settings.DouyinUrl, AppSettings.DefaultDouyinUrl);
         OpenUrl(url);
+    }
+
+    /// <summary>反馈渠道二：把 QQ 群号复制到剪贴板（QQ 没有稳定的群号唤起方式，复制最稳）。</summary>
+    private void OnCopyQqGroup(object sender, RoutedEventArgs e)
+    {
+        var qq = ContactOr(_lib.Settings.QqGroup, AppSettings.DefaultQqGroup);
+        try
+        {
+            Clipboard.SetText(qq);
+            SetStatus($"已复制 QQ 群号 {qq}，打开 QQ 搜索加群即可");
+            MessageBox.Show($"已复制 QQ 群号：{qq}\n\n打开 QQ → 搜索这个号码 → 加群反馈问题。",
+                "QQ 群", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("复制群号失败：" + ex.Message);
+            MessageBox.Show("复制到剪贴板失败（可能被其它程序占用），群号是：" + qq,
+                "QQ 群", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>把抖音 / QQ 群两个反馈渠道显示在界面上。</summary>
+    private void RefreshContactInfo()
+    {
+        var douyin = ContactOr(_lib.Settings.DouyinUrl, AppSettings.DefaultDouyinUrl);
+        var douyinId = ContactOr(_lib.Settings.DouyinId, AppSettings.DefaultDouyinId);
+        var qq = ContactOr(_lib.Settings.QqGroup, AppSettings.DefaultQqGroup);
+        TxtContactInfo.Text = $"反馈渠道　抖音号 {douyinId}（{douyin}）　｜　QQ 群：{qq}";
     }
 
 private void OnOpenKeyMapEditor(object sender, RoutedEventArgs e)
