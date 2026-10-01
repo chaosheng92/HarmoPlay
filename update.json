@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "published": "2026-10-01",
-  "notes": "口琴谱演奏器 v1.0.0：新手模式诊断增强——状态栏版本号后带构建时间戳（(build MM-dd HH:mm)，可确认是否为新包）；每个音的等待/跳过都写进 startup.log（跟谱等待 / 跟谱完成 / 跟谱跳过）；修复\"没按对也往下走\"的根因（等待期间冻结曲谱时间轴）。",
+  "notes": "口琴谱演奏器 v1.0.0：新手/跟谱模式在等你按键时真正\"停住\"——曲谱时间轴实时冻结（PositionMs 恒定），音符停在判定线上不动，按对（新手模式还要按住整拍）之后才继续；不会再出现\"没按对音符还在往下走\"。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "3fc52a70b942b1c38188e995a0a9cb3cca8f10dbd2a3c41d6db4d7685839ea34"
+  "sha256": "e20b10f4feb258055e2808e5de794691289abab2afc8693b07607dfb34907db4"
 }

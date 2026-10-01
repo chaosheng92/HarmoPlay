@@ -124,11 +124,31 @@ public sealed class PlaybackEngine : IDisposable
     {
         get
         {
+            // 等你按键时把画面冻住：音符停在判定线上不动，直到你按对/按住
+            if (_freezeTimeline) return _freezeAt;
             if (!IsRunning && !_watch.IsRunning) return 0;
             double now = _watch.Elapsed.TotalMilliseconds - _timelineOffsetMs - _pauseOffsetMs;
             if (_pause) now -= _watch.Elapsed.TotalMilliseconds - _pauseStartMs;
             return now;
         }
+    }
+
+    private bool _freezeTimeline;
+    private double _freezeAt;
+
+    /// <summary>冻住曲谱时间轴（跟谱/新手模式等你按键时用，画面与判定都停住）。</summary>
+    private void BeginFreeze()
+    {
+        _freezeAt = _freezeTimeline ? _freezeAt : PositionMs;
+        _freezeTimeline = true;
+    }
+
+    /// <summary>解冻：把等待的这段时间从时间轴里扣掉，后面音符仍按自己的节拍来。</summary>
+    private void EndFreeze()
+    {
+        if (!_freezeTimeline) return;
+        _timelineOffsetMs = _watch.Elapsed.TotalMilliseconds - _pauseOffsetMs - _freezeAt;
+        _freezeTimeline = false;
     }
 
     public void Play(IReadOnlyList<ScoreNote> notes, KeyMap map, double bpm, PlaybackOptions options)
@@ -392,13 +412,15 @@ public sealed class PlaybackEngine : IDisposable
         // 否则你卡在某个音上几秒后，时间轴已经跑远，按对的一瞬间后面几个音会一起冲出来
         // ——看起来就是"没按到也往下走"。
         double waitStart = _watch.Elapsed.TotalMilliseconds;
+        BeginFreeze();
         try
         {
             return FollowPlayCore(note, chord, index);
         }
         finally
         {
-            _timelineOffsetMs += _watch.Elapsed.TotalMilliseconds - waitStart;
+            EndFreeze();
+            _ = waitStart;
         }
     }
 
