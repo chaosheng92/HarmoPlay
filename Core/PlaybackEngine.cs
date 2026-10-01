@@ -405,8 +405,24 @@ public sealed class PlaybackEngine : IDisposable
             if (hit)
             {
                 FollowCorrect++;
+                if (_options.FollowRequireHold)
+                {
+                    bool held = HoldForDuration(note, chord, index);
+                    if (!held)
+                    {
+                        if (_options.BeginnerMode)
+                        {
+                            // 新手模式：没按住整拍就停在这个音，等你重新按对并按住（绝不跳过）
+                            FollowCorrect--;
+                            FollowMissed--;      // 撤销 HoldForDuration 记下的"漏"
+                            Status?.Invoke($"「{note.Raw}」要按住整拍，请重新按对并按住不放");
+                            WaitRelease(chord);
+                            continue;
+                        }
+                        return false;
+                    }
+                }
                 FollowJudged?.Invoke(index, "ok", chord.Detail);
-                if (_options.FollowRequireHold && !HoldForDuration(note, chord, index)) return false;
                 WaitRelease(chord);
                 return true;
             }
@@ -521,9 +537,13 @@ public sealed class PlaybackEngine : IDisposable
             if (!chord.IsKeyHeldByUser())
             {
                 FollowMissed++;
-                FollowJudged?.Invoke(index, "miss", "没按住整拍");
-                Status?.Invoke($"「{note.Raw}」没按住整拍（需要 {need:0} 毫秒）");
-                return true;
+                if (!_options.BeginnerMode)
+                {
+                    FollowJudged?.Invoke(index, "miss", "没按住整拍");
+                    Status?.Invoke($"「{note.Raw}」没按住整拍（需要 {need:0} 毫秒）");
+                }
+                // 新手模式返回 false：调用方会撤销这次"漏"，停在这个音等你重按
+                return !_options.BeginnerMode;
             }
             Thread.Sleep(8);
             held += 8;

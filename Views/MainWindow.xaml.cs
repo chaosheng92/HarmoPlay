@@ -431,7 +431,11 @@ public partial class MainWindow : Window
         p.LegatoSameKey = ChkLegato.IsChecked == true;
         p.WaitForInput = ComboPlayMode.SelectedIndex is 1 or 2;
         p.BeginnerMode = ComboPlayMode.SelectedIndex == 2;
-        if (p.BeginnerMode) p.FollowTimeoutSeconds = 0;   // 新手模式永不跳过
+        if (p.BeginnerMode)
+        {
+            p.FollowTimeoutSeconds = 0;   // 新手模式永不跳过
+            p.FollowRequireHold = true;   // 新手模式必须按住整拍
+        }
 
         return p;
     }
@@ -618,7 +622,8 @@ public partial class MainWindow : Window
         if (beginner)
         {
             p.FollowStrictKey = true;          // 必须按对才算过
-            p.FollowTimeoutSeconds = 0;        // 永不跳过：点不对就不继续
+            p.FollowRequireHold = true;        // 而且必须按住整拍
+            p.FollowTimeoutSeconds = 0;        // 永不跳过：点不对 / 没按住就不继续
             p.SimulateKeys = true;
             // 新手默认放慢一点，方便跟手（可随时在右边「速度」里改回去）
             if (p.Speed > 0.8)
