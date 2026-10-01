@@ -48,6 +48,11 @@ if (Test-Path (Join-Path $root 'package')) { Remove-Item (Join-Path $root 'packa
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item (Join-Path $dist '*') $stage -Recurse -Force
 Copy-Item (Join-Path $root '使用说明.txt') (Join-Path $stage '使用说明.txt') -Force
+# 开源声明与许可证：必须随包分发（署名要求写在里面）
+foreach ($doc in '开源声明.md', 'LICENSE') {
+    $src = Join-Path $root $doc
+    if (Test-Path $src) { Copy-Item $src (Join-Path $stage $doc) -Force }
+}
 $firstRun = Join-Path $root 'docs\首次运行说明.txt'
 if (Test-Path $firstRun) { Copy-Item $firstRun (Join-Path $stage '首次运行说明.txt') -Force }
 $selftestCmd = Join-Path $root 'tools\输入自检.cmd'

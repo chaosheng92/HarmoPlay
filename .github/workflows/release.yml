@@ -54,8 +54,18 @@ jobs:
           New-Item -ItemType Directory -Force -Path "package/$pkg" | Out-Null
           Copy-Item dist/* "package/$pkg" -Recurse -Force
           Copy-Item 使用说明.txt "package/$pkg/使用说明.txt" -Force
+          # 开源声明与许可证必须随包分发（署名要求写在里面）
+          if (Test-Path '开源声明.md') { Copy-Item '开源声明.md' "package/$pkg/开源声明.md" -Force }
+          if (Test-Path 'LICENSE') { Copy-Item 'LICENSE' "package/$pkg/LICENSE" -Force }
           Copy-Item docs/首次运行说明.txt "package/$pkg/首次运行说明.txt" -Force
           if (Test-Path 'tools/输入自检.cmd') { Copy-Item 'tools/输入自检.cmd' "package/$pkg/输入自检.cmd" -Force }
+          if (Test-Path 'tools/解除下载锁定.cmd') { Copy-Item 'tools/解除下载锁定.cmd' "package/$pkg/解除下载锁定.cmd" -Force }
+          # 文档与示例（Resources -> 文档与示例\）：与 tools/make-release.ps1 保持一致，
+          # 否则 Actions 打出来的包会比本地包少这几个文件，而 README/使用说明正好承诺了它们。
+          if (Test-Path 'Resources') {
+            New-Item -ItemType Directory -Force -Path "package/$pkg/文档与示例" | Out-Null
+            Copy-Item 'Resources/*' "package/$pkg/文档与示例" -Force
+          }
           if (Test-Path "package/$pkg/HarmoPlay.exe") {
             Rename-Item "package/$pkg/HarmoPlay.exe" "口琴谱演奏器.exe"
           }
@@ -116,6 +126,10 @@ jobs:
 
             > 若 Windows 弹出「已保护你的电脑 / 发布者未知」，点「更多信息 → 仍要运行」即可，
             > 原因与彻底解决办法见包内 `首次运行说明.txt` 与仓库 `docs/代码签名.md`。
+
+            > **开源声明**：允许使用、修改、二次分发与整合进自己的作品，但**必须**在创作者页面 /
+            > 作品说明中明确标出作者 **chaosheng** 与本项目地址
+            > ${{ github.server_url }}/${{ github.repository }}（详见仓库 `开源声明.md`）。
 
       - name: 提交新的 update.json
         shell: pwsh
