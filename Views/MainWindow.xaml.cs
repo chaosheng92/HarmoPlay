@@ -465,8 +465,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 自动弹奏需要风险确认；不同意就自动切到跟谱弹奏
-        if (!_lib.Settings.Playback.WaitForInput && !ConfirmAutoPlay(switching: false))
+        // 只有「自动弹奏」（真的发送模拟按键）需要风险确认；跟谱 / 新手模式都不弹
+        if (_lib.Settings.Playback.SimulateKeys && !ConfirmAutoPlay(switching: false))
             ForceFollowMode();
 
         ParseCurrent(updateEditorPreviewOnly: false);
