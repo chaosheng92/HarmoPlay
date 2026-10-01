@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
   "published": "2026-10-01",
-  "notes": "口琴谱演奏器 v1.0.0：修复切换演奏方式弹窗误报——BuildUi 重复设置下拉数据源会连发 2→1→0 三次 SelectionChanged，最后一次被当成\"选了自动弹奏\"；现在删除重复设置并屏蔽程序自身赋值，只有你真正点选才响应。",
+  "notes": "口琴谱演奏器 v1.0.0：所有对\"演奏方式\"下拉的程序化赋值统一走受保护的 SetPlayModeIndex（回退/刷新/快捷键循环），彻底消除假 SelectionChanged——切换跟谱/新手模式不会再误弹自动弹奏风险窗。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "6471de909824155dd6a130109d66c4dc35004644baa4364630c5a1eb7dbdc461"
+  "sha256": "480d8980db2d9c95b4bcbb1b6fe709cd38c1e957a37ee2b7ec7ef233cc5cb262"
 }

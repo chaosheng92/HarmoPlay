@@ -236,7 +236,7 @@ public partial class MainWindow : Window
     private void ForceFollowMode()
     {
         _loading = true;
-        ComboPlayMode.SelectedIndex = 1;
+        SetPlayModeIndex(1);
         _loading = false;
         _lib.Settings.Playback.WaitForInput = true;
         _lib.Settings.Playback.BeginnerMode = false;
@@ -257,7 +257,7 @@ public partial class MainWindow : Window
         SldSpeed.Value = Math.Clamp(p.Speed, 0.2, 2.0);
         ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（连续判定）", "新手模式（按对才继续，永不跳过）" };
         _settingModeIndex = true;
-        ComboPlayMode.SelectedIndex = p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0;
+        SetPlayModeIndex(p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0);
         _settingModeIndex = false;
         ComboOverlayModeBar.ItemsSource = new[] { "经典堆叠", "音游下落" };
         ComboOverlayModeBar.SelectedIndex = _lib.Settings.Overlay.Mode == 1 ? 1 : 0;
@@ -270,7 +270,7 @@ public partial class MainWindow : Window
 
         // 演奏方式（注意：这里只设置一次；重复设置 ItemsSource 会冲掉选中项并
         // 触发假的 SelectionChanged，被误判成"用户选了自动弹奏"而弹风险窗）
-        ComboPlayMode.SelectedIndex = p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0;
+        SetPlayModeIndex(p.BeginnerMode ? 2 : p.WaitForInput ? 1 : 0);
         TxtPlayMode.Text = p.ModeText;
 
 
@@ -548,7 +548,7 @@ public partial class MainWindow : Window
         BtnPlay.Content = _engine.IsRunning
             ? (_engine.IsPaused ? "▶ 继续" : "⏸ 暂停")
             : "▶ 播放 / 暂停";
-        ComboPlayMode.SelectedIndex = _lib.Settings.Playback.WaitForInput ? 1 : 0;
+        SetPlayModeIndex(_lib.Settings.Playback.WaitForInput ? 1 : 0);
         TxtPlayMode.Text = _lib.Settings.Playback.ModeText;
     }
 
@@ -622,6 +622,14 @@ public partial class MainWindow : Window
 
     /// <summary>true = 正在由程序设置"演奏方式"下拉（忽略由此产生的 SelectionChanged）。</summary>
     private bool _settingModeIndex;
+
+    /// <summary>程序设置"演奏方式"下拉的唯一入口：屏蔽由此产生的 SelectionChanged（假事件）。</summary>
+    private void SetPlayModeIndex(int index)
+    {
+        _settingModeIndex = true;
+        try { ComboPlayMode.SelectedIndex = index; }
+        finally { _settingModeIndex = false; }
+    }
 
     private void OnPlayModeChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -1553,6 +1561,8 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
+
 
 
 
