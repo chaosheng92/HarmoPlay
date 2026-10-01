@@ -1,8 +1,8 @@
 {
-  "version": "1.1.1",
+  "version": "1.2.0",
   "published": "2026-10-01",
-  "notes": "v1.1.1：新增「输入自检」——一键判断自动弹奏为什么没反应（检测程序完整性/输入桌面/前台窗口，装钩子实测注入是否被系统接受，并给出建议）；诊断包新增输入注入环境信息；附带「输入自检.cmd」双击即用。另：修正倒计时与演奏方式在跟谱模式下的一致行为",
+  "notes": "v1.2.0：悬浮窗位置任意拖动（橙色拖动条 + 右键菜单 + X/Y 微调 + 居中，Alt+L 解锁）；音游下落模式设为默认并放到工具栏一键切换（Alt+M），新增连击数与命中闪光；发布包附「首次运行说明.txt」（SmartScreen 提示）与「输入自检.cmd」；打包脚本与 GitHub Actions 支持可选代码签名",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "b1b88d81400005f85051dc89c62ce17721f03e744a73ac9eca5c29cc9623d0c7"
+  "sha256": "36e2a170c6ac0e541377feaf6dec157c2156d311fba9936e88788d08a9ad00f5"
 }

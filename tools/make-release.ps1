@@ -13,6 +13,9 @@ param(
     [string]$Notes = "见 Release 说明",
     [string]$Repo = "你的用户名/HarmoPlay",
     [string]$DotnetPath = "",
+    [string]$PfxPath = "",
+    [string]$PfxPassword = "",
+    [string]$SigntoolPath = "",
     [switch]$SkipBuild
 )
 
@@ -45,10 +48,38 @@ if (Test-Path (Join-Path $root 'package')) { Remove-Item (Join-Path $root 'packa
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item (Join-Path $dist '*') $stage -Recurse -Force
 Copy-Item (Join-Path $root '使用说明.txt') (Join-Path $stage '使用说明.txt') -Force
+$firstRun = Join-Path $root 'docs\首次运行说明.txt'
+if (Test-Path $firstRun) { Copy-Item $firstRun (Join-Path $stage '首次运行说明.txt') -Force }
 $selftestCmd = Join-Path $root 'tools\输入自检.cmd'
 if (Test-Path $selftestCmd) { Copy-Item $selftestCmd (Join-Path $stage '输入自检.cmd') -Force }
 $exe = Join-Path $stage 'HarmoPlay.exe'
 if (Test-Path $exe) { Rename-Item $exe '口琴谱演奏器.exe' }
+
+# ---- 可选：代码签名（消除 SmartScreen"发布者未知"）----
+$targetExe = Join-Path $stage '口琴谱演奏器.exe'
+if ($PfxPath) {
+    if (-not $SigntoolPath) {
+        $cands = @()
+        $cmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
+        if ($cmd) { $cands += $cmd.Source }
+        $cands += Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' -ErrorAction SilentlyContinue |
+                  Sort-Object FullName -Descending | Select-Object -ExpandProperty FullName
+        $SigntoolPath = $cands | Select-Object -First 1
+    }
+    if ($SigntoolPath -and (Test-Path $SigntoolPath)) {
+        Write-Host "使用 signtool：$SigntoolPath"
+        & $SigntoolPath sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com `
+            /f $PfxPath /p $PfxPassword $targetExe
+        if ($LASTEXITCODE -eq 0) { Write-Host "签名完成 ✓" }
+        else { Write-Warning "签名失败（退出码 $LASTEXITCODE），继续打未签名包" }
+    }
+    else {
+        Write-Warning "找不到 signtool.exe（安装 Windows SDK 的 Signing Tools，或用 -SigntoolPath 指定），跳过签名"
+    }
+}
+else {
+    Write-Host "未提供 -PfxPath，跳过代码签名（用户首次运行会看到 SmartScreen 提示，见 docs/首次运行说明.txt）"
+}
 
 $zip = Join-Path $root "package\$pkgName.zip"
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force

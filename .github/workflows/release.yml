@@ -46,6 +46,7 @@ jobs:
             -o dist
 
       - name: 组装发布包
+        id: assemble
         shell: pwsh
         run: |
           $v = '${{ steps.ver.outputs.version }}'
@@ -53,16 +54,40 @@ jobs:
           New-Item -ItemType Directory -Force -Path "package/$pkg" | Out-Null
           Copy-Item dist/* "package/$pkg" -Recurse -Force
           Copy-Item 使用说明.txt "package/$pkg/使用说明.txt" -Force
+          Copy-Item docs/首次运行说明.txt "package/$pkg/首次运行说明.txt" -Force
+          if (Test-Path 'tools/输入自检.cmd') { Copy-Item 'tools/输入自检.cmd' "package/$pkg/输入自检.cmd" -Force }
           if (Test-Path "package/$pkg/HarmoPlay.exe") {
             Rename-Item "package/$pkg/HarmoPlay.exe" "口琴谱演奏器.exe"
           }
+          "pkg=$pkg" >> $env:GITHUB_OUTPUT
+
+      - name: 代码签名（可选；配置了 SIGN_PFX_BASE64 才执行）
+        if: ${{ secrets.SIGN_PFX_BASE64 != '' }}
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String('${{ secrets.SIGN_PFX_BASE64 }}'))
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' -ErrorAction SilentlyContinue |
+                      Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { throw '找不到 signtool.exe' }
+          $exe = "package/${{ steps.assemble.outputs.pkg }}/口琴谱演奏器.exe"
+          & $signtool sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com `
+              /f $pfx /p '${{ secrets.SIGN_PFX_PASSWORD }}' $exe
+          if ($LASTEXITCODE -ne 0) { throw "签名失败，退出码 $LASTEXITCODE" }
+          Remove-Item $pfx -Force
+          Write-Host '签名完成 ✓'
+
+      - name: 压缩并计算 SHA256
+        id: pack
+        shell: pwsh
+        run: |
+          $pkg = '${{ steps.assemble.outputs.pkg }}'
           Compress-Archive -Path "package/$pkg/*" -DestinationPath "package/$pkg.zip" -Force
           $hash = (Get-FileHash "package/$pkg.zip" -Algorithm SHA256).Hash.ToLower()
           "sha=$hash" >> $env:GITHUB_OUTPUT
           Write-Host "SHA256=$hash"
 
       - name: 更新 update.json
-        id: manifest
         shell: pwsh
         run: |
           $v = '${{ steps.ver.outputs.version }}'
@@ -73,7 +98,7 @@ jobs:
             notes     = "见 Release 说明"
             download  = "https://github.com/$repo/releases/latest"
             mandatory = $false
-            sha256    = '${{ steps.ver.outputs.sha }}'
+            sha256    = '${{ steps.pack.outputs.sha }}'
           }
           $manifest | ConvertTo-Json -Depth 4 | Set-Content update.json -Encoding UTF8
 
@@ -87,7 +112,10 @@ jobs:
             下载 `HarmoPlay-${{ steps.ver.outputs.version }}-win-x64.zip`，解压后直接运行 `口琴谱演奏器.exe`。
             （自包含，无需安装 .NET；请保持 5 个原生 DLL 与 exe 在一起）
 
-            SHA256：`${{ steps.manifest.outputs.sha || steps.ver.outputs.sha }}`
+            SHA256：`${{ steps.pack.outputs.sha }}`
+
+            > 若 Windows 弹出「已保护你的电脑 / 发布者未知」，点「更多信息 → 仍要运行」即可，
+            > 原因与彻底解决办法见包内 `首次运行说明.txt` 与仓库 `docs/代码签名.md`。
 
       - name: 提交新的 update.json
         shell: pwsh

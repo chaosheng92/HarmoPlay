@@ -65,6 +65,7 @@ public partial class MainWindow : Window
     private string _interruptedBy = "";
     private DateTime _interruptReleaseAt = DateTime.MinValue;
     private DateTime _playbackStartedAt = DateTime.MinValue;
+    private int _combo;
 
     public MainWindow()
     {
@@ -216,6 +217,7 @@ public partial class MainWindow : Window
         SldOverlayOpacity.Value = Math.Clamp(o.Opacity, 0.2, 1.0);
         TxtOverlayOpacity.Text = o.Opacity.ToString("0.00");
         TxtOverlayStack.Text = o.MaxStack.ToString();
+        RefreshOverlayPosBoxes();
 
         _hotkeyRows.Clear();
         foreach (var h in _lib.Settings.Hotkeys)
@@ -239,6 +241,8 @@ public partial class MainWindow : Window
         // 悬浮窗：音游下落模式
         ComboOverlayMode.ItemsSource = new[] { "经典堆叠", "音游下落" };
         ComboOverlayMode.SelectedIndex = o.Mode == 1 ? 1 : 0;
+        ComboOverlayModeBar.ItemsSource = new[] { "经典堆叠", "音游下落" };
+        ComboOverlayModeBar.SelectedIndex = o.Mode == 1 ? 1 : 0;
         SldFallSpeed.Value = Math.Clamp(o.FallSpeed, 80, 600);
         TxtFallSpeed.Text = o.FallSpeed.ToString("0") + " px/s";
         TxtLookAhead.Text = o.LookAheadSeconds.ToString("0.#");
@@ -459,6 +463,8 @@ public partial class MainWindow : Window
         if (_overlay != null && _lib.Settings.Overlay.HideWhilePlaying) _overlay.Hide();
         _playbackStartedAt = DateTime.Now;
         _interruptedBy = "";
+        _combo = 0;
+        if (_overlay != null) _overlay.Canvas.Combo = 0;
         _engine.Play(_parsed.Notes, _lib.EffectiveKeyMap, _parsed.Notation, bpm, options);
         UpdatePlayButton();
         SetStatus(options.WaitForInput
@@ -475,7 +481,8 @@ public partial class MainWindow : Window
         if (_overlay != null && _lib.Settings.Overlay.Visible && _lib.Settings.Overlay.HideWhilePlaying)
             _overlay.Show();
         SetStatus("已停止");
-        if (_overlay != null) { _overlay.Canvas.CurrentIndex = -1; _overlay.Canvas.InvalidateVisual(); }
+        if (_overlay != null) { _overlay.Canvas.CurrentIndex = -1; _overlay.Canvas.Combo = 0; _overlay.Canvas.InvalidateVisual(); }
+        _combo = 0;
         TxtNowChord.Text = "—";
         TxtNowDetail.Text = "未播放";
         PrgSong.Value = 0;
@@ -514,6 +521,13 @@ public partial class MainWindow : Window
         if (_parsed == null || index < 0 || index >= _parsed.Notes.Count) return;
         var note = _parsed.Notes[index];
         var chord = Chord.Resolve(note, _lib.EffectiveKeyMap, _parsed.Notation);
+
+        // 连击：自动弹奏按音符数累加；跟谱弹奏按"按对"累加（按错/漏掉会清零）
+        if (!note.IsRest)
+        {
+            _combo++;
+            if (_overlay != null) _overlay.Canvas.Combo = _combo;
+        }
 
         TxtNowChord.Text = note.IsRest ? "休止" : chord.Text;
         TxtNowChord.Foreground = note.IsRest ? new SolidColorBrush(Color.FromRgb(0x8F, 0xA0, 0xB5)) : ToBrush(chord.Color);
@@ -617,6 +631,11 @@ public partial class MainWindow : Window
     private void OnFollowJudged(int index, string verdict, string detail)
     {
         RefreshFollowStats();
+        if (verdict is "wrong" or "miss")
+        {
+            _combo = 0;
+            if (_overlay != null) _overlay.Canvas.Combo = 0;
+        }
         if (verdict == "wrong")
             TxtNowDetail.Text = "按错了：" + detail;
         else if (verdict == "miss")
@@ -670,6 +689,9 @@ public partial class MainWindow : Window
             case DefaultHotkeys.PanicRelease:
                 OnPanicRelease(this, new RoutedEventArgs());
                 break;
+            case DefaultHotkeys.ToggleMode:
+                SetOverlayMode(_lib.Settings.Overlay.Mode == 1 ? 0 : 1, true);
+                break;
             default:
                 if (action.StartsWith(DefaultHotkeys.Quick))
                 {
@@ -720,6 +742,7 @@ public partial class MainWindow : Window
             _overlay.SettingsChanged += (_, _) =>
             {
                 SyncOverlaySettingsFromWindow();
+                RefreshOverlayPosBoxes();
                 LibraryStore.Save(_lib);
             };
         }
@@ -775,6 +798,9 @@ public partial class MainWindow : Window
 
         // 音游下落模式
         o.Mode = ComboOverlayMode.SelectedIndex == 1 ? 1 : 0;
+        _loading = true;
+        ComboOverlayModeBar.SelectedIndex = o.Mode;
+        _loading = false;
         o.FallSpeed = Math.Clamp(SldFallSpeed.Value, 80, 600);
         o.LookAheadSeconds = double.TryParse(TxtLookAhead.Text.Trim(), out var la) ? Math.Clamp(la, 0.5, 12) : o.LookAheadSeconds;
         o.ShowJudgmentLine = ChkJudgmentLine.IsChecked == true;
@@ -1224,6 +1250,92 @@ public partial class MainWindow : Window
     }
 
     private void OnOpenFeedbackDir(object sender, RoutedEventArgs e) => OpenUrl(Core.Diagnostics.FeedbackDir);
+
+    // ================================================================ 悬浮窗位置
+
+    /// <summary>统一切换悬浮窗模式（工具栏 / 设置页 / Alt+M 都走这里）。</summary>
+    private void SetOverlayMode(int mode, bool announce)
+    {
+        mode = mode == 1 ? 1 : 0;
+        _lib.Settings.Overlay.Mode = mode;
+        _loading = true;
+        ComboOverlayMode.SelectedIndex = mode;
+        ComboOverlayModeBar.SelectedIndex = mode;
+        _loading = false;
+        ShowOverlay();
+        LibraryStore.Save(_lib);
+        if (announce)
+            SetStatus(mode == 1
+                ? "悬浮窗已切换：音游下落模式（音符落到判定线时按键，Alt+M 可切回）"
+                : "悬浮窗已切换：经典堆叠模式（最下面一块就是当前该弹的音）");
+    }
+
+    private void OnOverlayModeBarChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        SetOverlayMode(ComboOverlayModeBar.SelectedIndex, true);
+    }
+
+    private void OnOverlayPosChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading) return;
+        var o = _lib.Settings.Overlay;
+        if (double.TryParse(TxtOverlayX.Text.Trim(), out var x)) o.Left = x;
+        if (double.TryParse(TxtOverlayY.Text.Trim(), out var y)) o.Top = y;
+        if (_overlay != null)
+        {
+            _overlay.Left = o.Left;
+            _overlay.Top = o.Top;
+        }
+        LibraryStore.Save(_lib);
+    }
+
+    private void NudgeOverlay(double dx, double dy)
+    {
+        var o = _lib.Settings.Overlay;
+        o.Left = Math.Max(-200, o.Left + dx);
+        o.Top = Math.Max(-200, o.Top + dy);
+        if (_overlay != null)
+        {
+            _overlay.Left = o.Left;
+            _overlay.Top = o.Top;
+        }
+        _loading = true;
+        TxtOverlayX.Text = o.Left.ToString("0");
+        TxtOverlayY.Text = o.Top.ToString("0");
+        _loading = false;
+        LibraryStore.Save(_lib);
+        SetStatus($"悬浮窗位置：{o.Left:0}, {o.Top:0}（Alt+L 解锁后也可直接拖）");
+    }
+
+    private void OnNudgeLeft(object sender, RoutedEventArgs e) => NudgeOverlay(-10, 0);
+    private void OnNudgeRight(object sender, RoutedEventArgs e) => NudgeOverlay(10, 0);
+    private void OnNudgeUp(object sender, RoutedEventArgs e) => NudgeOverlay(0, -10);
+    private void OnNudgeDown(object sender, RoutedEventArgs e) => NudgeOverlay(0, 10);
+
+    private void OnCenterOverlay(object sender, RoutedEventArgs e)
+    {
+        var o = _lib.Settings.Overlay;
+        double sw = SystemParameters.PrimaryScreenWidth;
+        o.Left = Math.Max(0, (sw - o.Width) / 2);
+        o.Top = Math.Max(0, (SystemParameters.PrimaryScreenHeight - o.Height) / 2 - 40);
+        ShowOverlay();
+        _loading = true;
+        TxtOverlayX.Text = o.Left.ToString("0");
+        TxtOverlayY.Text = o.Top.ToString("0");
+        _loading = false;
+        LibraryStore.Save(_lib);
+        SetStatus("悬浮窗已居中");
+    }
+
+    private void RefreshOverlayPosBoxes()
+    {
+        var o = _lib.Settings.Overlay;
+        _loading = true;
+        TxtOverlayX.Text = o.Left.ToString("0");
+        TxtOverlayY.Text = o.Top.ToString("0");
+        _loading = false;
+    }
 
     private void OpenUrl(string url)
     {

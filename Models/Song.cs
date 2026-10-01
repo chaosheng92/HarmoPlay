@@ -52,8 +52,8 @@ public sealed class OverlaySettings
     public string Background { get; set; } = "#CC10141C";
 
     // ---- 音游下落模式 ----
-    /// <summary>0 = 经典堆叠，1 = 音游下落。</summary>
-    public int Mode { get; set; }
+    /// <summary>0 = 经典堆叠，1 = 音游下落（默认下落，视觉效果更像音游）。</summary>
+    public int Mode { get; set; } = 1;
     /// <summary>下落速度（像素/秒）。</summary>
     public double FallSpeed { get; set; } = 260;
     /// <summary>音符提前多少秒进入视野。</summary>
@@ -169,6 +169,7 @@ public static class DefaultHotkeys
     public const string ToggleOverlay = "toggleoverlay";
     public const string LockOverlay = "lockoverlay";
     public const string ToggleWait = "togglewait";
+    public const string ToggleMode = "togglemode";
     public const string PanicRelease = "panicrelease";
     public const string Quick = "quick";
 
@@ -180,6 +181,7 @@ public static class DefaultHotkeys
         new HotkeySpec { Action = PrevSong,      Key = "Up", Modifiers = "Alt" },
         new HotkeySpec { Action = ToggleOverlay, Key = "H",  Modifiers = "Alt" },
         new HotkeySpec { Action = LockOverlay,   Key = "L",  Modifiers = "Alt" },
+        new HotkeySpec { Action = ToggleMode,    Key = "M",  Modifiers = "Alt" },
         new HotkeySpec { Action = ToggleWait,    Key = "T",  Modifiers = "Alt" },
         new HotkeySpec { Action = PanicRelease,  Key = "D0", Modifiers = "Ctrl+Alt" },
         new HotkeySpec { Action = Quick + "1",   Key = "D4", Modifiers = "Alt" },
@@ -201,6 +203,7 @@ public static class HotkeyActions
         DefaultHotkeys.PrevSong => "上一首",
         DefaultHotkeys.ToggleOverlay => "显示 / 隐藏悬浮窗",
         DefaultHotkeys.LockOverlay => "锁定 / 解锁悬浮窗（点击穿透）",
+        DefaultHotkeys.ToggleMode => "切换 悬浮窗模式（音游下落 / 经典堆叠）",
         DefaultHotkeys.ToggleWait => "切换 自动演奏 / 跟练模式",
         DefaultHotkeys.PanicRelease => "急停：立刻松开所有按键与鼠标键",
         _ when action.StartsWith(DefaultHotkeys.Quick) =>

@@ -48,6 +48,10 @@
                 <ComboBox x:Name="ComboPlayMode" Width="196" Margin="0,0,10,0" SelectionChanged="OnPlayModeChanged"
                           ToolTip="自动弹奏：程序自己按键弹完整首；跟谱弹奏：程序不发按键，等你按对当前的音再走下一个（Alt+T 切换）"/>
                 <CheckBox x:Name="ChkOverlay" Content="显示悬浮窗" Click="OnOverlayToggle"/>
+                <TextBlock Text="悬浮窗样式" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                <ComboBox x:Name="ComboOverlayModeBar" Width="140" Margin="0,0,10,0"
+                          SelectionChanged="OnOverlayModeBarChanged"
+                          ToolTip="音游下落：音符按节奏从上方落到判定线；经典堆叠：音符块从下往上堆（Alt+M 也能切换）"/>
                 <Border Width="1" Background="{StaticResource Line}" Margin="6,2,14,2"/>
                 <Button Content="导入鼠鼠口琴谱曲库" Click="OnImportSquirrel"/>
                 <Button Content="导入曲谱文件…" Click="OnImportFiles"/>
@@ -422,9 +426,23 @@
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                        <Button Content="解锁拖动（Alt+L 切换）" Click="OnUnlockOverlay"/>
+                                        <Button Content="解锁拖动（Alt+L）" Click="OnUnlockOverlay"/>
                                         <Button Content="复位位置" Click="OnResetOverlayPosition"/>
                                         <Button Content="预览悬浮窗" Click="OnPreviewOverlay"/>
+                                    </StackPanel>
+
+                                    <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,4"
+                                               Text="位置微调：解锁后可直接拖动悬浮窗（拖动条会变橙色），也可以在这里精确设置 / 点箭头微调"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="X" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBox x:Name="TxtOverlayX" Width="56" TextChanged="OnOverlayPosChanged"/>
+                                        <TextBlock Text="Y" VerticalAlignment="Center" Margin="10,0,4,0"/>
+                                        <TextBox x:Name="TxtOverlayY" Width="56" TextChanged="OnOverlayPosChanged"/>
+                                        <Button Content="←" Click="OnNudgeLeft" Margin="10,0,4,0"/>
+                                        <Button Content="↑" Click="OnNudgeUp" Margin="0,0,4,0"/>
+                                        <Button Content="↓" Click="OnNudgeDown" Margin="0,0,4,0"/>
+                                        <Button Content="→" Click="OnNudgeRight" Margin="0"/>
+                                        <Button Content="居中" Click="OnCenterOverlay" Margin="8,0,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
                             </GroupBox>

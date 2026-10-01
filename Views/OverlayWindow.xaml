@@ -14,6 +14,15 @@
         WindowStartupLocation="Manual"
         Opacity="0.9">
     <Border x:Name="Root" CornerRadius="10" Background="#CC10141C" BorderBrush="#33FFFFFF" BorderThickness="1">
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem x:Name="MenuLock" Header="锁定（点击穿透）" Click="OnMenuLock"/>
+                <MenuItem x:Name="MenuMode" Header="切换到音游下落模式" Click="OnMenuMode"/>
+                <Separator/>
+                <MenuItem Header="复位到左上角" Click="OnMenuReset"/>
+                <MenuItem Header="隐藏悬浮窗（Alt+H 恢复）" Click="OnMenuHide"/>
+            </ContextMenu>
+        </Border.ContextMenu>
         <v:OverlayCanvas x:Name="Surface" Margin="8"/>
     </Border>
 </Window>

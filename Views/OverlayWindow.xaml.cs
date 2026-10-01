@@ -32,9 +32,55 @@ public partial class OverlayWindow : Window
     {
         InitializeComponent();
         Surface.MouseLeftButtonDown += OnSurfaceMouseDown;
+        Root.MouseLeftButtonDown += OnSurfaceMouseDown;        // 整块窗口都能拖
+        Root.ContextMenuOpening += (_, _) => UpdateMenuHeaders();
         MouseWheel += OnWheel;
         LocationChanged += (_, _) => PersistBounds();
         SizeChanged += (_, _) => PersistBounds();
+    }
+
+    /// <summary>右键菜单的文案与状态同步（解锁后右键可切换模式 / 复位 / 隐藏）。</summary>
+    private void UpdateMenuHeaders()
+    {
+        var s = Surface.Settings;
+        MenuLock.Header = _clickThrough ? "解锁拖动（也可以按 Alt+L）" : "锁定（点击穿透，不挡游戏）";
+        MenuMode.Header = s is { Mode: 1 } ? "切换到经典堆叠模式" : "切换到音游下落模式";
+        Surface.Unlocked = !_clickThrough;
+        Surface.InvalidateVisual();
+    }
+
+    private void OnMenuLock(object sender, RoutedEventArgs e)
+    {
+        ClickThrough = !ClickThrough;
+        UpdateMenuHeaders();
+    }
+
+    private void OnMenuMode(object sender, RoutedEventArgs e)
+    {
+        if (Surface.Settings is not { } s) return;
+        s.Mode = s.Mode == 1 ? 0 : 1;
+        UpdateMenuHeaders();
+        Surface.InvalidateVisual();
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnMenuReset(object sender, RoutedEventArgs e)
+    {
+        if (Surface.Settings is not { } s) return;
+        s.Left = 200;
+        s.Top = 120;
+        s.Width = 460;
+        s.Height = s.Mode == 1 ? 420 : 320;
+        ApplySettings(s);
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnMenuHide(object sender, RoutedEventArgs e)
+    {
+        if (Surface.Settings is not { } s) return;
+        s.Visible = false;
+        Hide();
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public OverlayCanvas Canvas => Surface;
@@ -83,7 +129,9 @@ public partial class OverlayWindow : Window
             Root.Background = ToBrush(s.Background);
             Surface.Settings = s;
             _clickThrough = s.ClickThrough;
+            Surface.Unlocked = !s.ClickThrough;
             ApplyClickThrough();
+            UpdateMenuHeaders();
             Surface.InvalidateVisual();
         }
         finally
@@ -207,6 +255,14 @@ public sealed class OverlayCanvas : FrameworkElement
     public string StatusText { get; set; } = "";
     public bool Paused { get; set; }
     public PlaybackEngine? Playback { get; set; }
+    /// <summary>解锁状态（可拖动）：显示橙色边框与拖动提示。</summary>
+    public bool Unlocked { get; set; }
+    /// <summary>连击数（音游模式显示）。</summary>
+    public int Combo { get; set; }
+
+    private int _flashLane = -1;
+    private DateTime _flashUntil = DateTime.MinValue;
+    private int _lastIndex = -1;
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -226,6 +282,7 @@ public sealed class OverlayCanvas : FrameworkElement
         }
         if (Playback is { CountdownValue: > 0 }) DrawCountdown(dc, w, lanesTop, lanesBottom);
         DrawFooter(dc, w, h);
+        if (Unlocked) DrawUnlockedFrame(dc, w, h);
 
         if (Score == null || Score.Notes.Count == 0)
         {
@@ -242,7 +299,7 @@ public sealed class OverlayCanvas : FrameworkElement
         var title = Score?.Title;
         if (string.IsNullOrWhiteSpace(title)) title = "口琴谱演奏器";
         var bpm = Score?.Bpm > 0 ? $"{Score!.Bpm:0.#} BPM" : "";
-        var mode = Settings.Mode == 1 ? "下落" : "堆叠";
+        var mode = Settings.Mode == 1 ? "音游下落" : "经典堆叠";
         var play = Playback is { IsRunning: true } && Playback.Notation == NotationKind.Pitch ? "" : "";
         _ = play;
         var modeName = Playback?.FollowMode == true ? "跟谱" : "自动";
@@ -393,6 +450,17 @@ public sealed class OverlayCanvas : FrameworkElement
         int currentIndex = playing ? Playback!.CurrentIndex : CurrentIndex;
         var notation = Score.Notation;
 
+        // 命中闪光：当前音变化时在判定线上亮一下
+        if (playing && currentIndex != _lastIndex)
+        {
+            _lastIndex = currentIndex;
+            if (currentIndex >= 0 && currentIndex < Score.Notes.Count && !Score.Notes[currentIndex].IsRest)
+            {
+                _flashLane = Math.Clamp(Score.Notes[currentIndex].Degree, 1, 8) - 1;
+                _flashUntil = DateTime.Now.AddMilliseconds(220);
+            }
+        }
+
         // 已经过去的音：保留 250ms 的余韵
         foreach (var n in Score.Notes)
         {
@@ -435,6 +503,21 @@ public sealed class OverlayCanvas : FrameworkElement
             var t = Text("按 Alt+1 开始下落", 12, Brush("#7A8798"), UiFace);
             dc.DrawText(t, new Point((w - t.Width) / 2, top + 4));
         }
+
+        // 命中闪光 + 连击
+        if (_flashLane >= 0 && DateTime.Now < _flashUntil)
+        {
+            double x = _flashLane * (laneW + gap);
+            var glow = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
+            glow.Freeze();
+            dc.DrawRoundedRectangle(glow, null, new Rect(x + 1, bottom - 10, laneW - 2, 14), 4, 4);
+        }
+
+        if (Combo >= 3)
+        {
+            var c = Text($"{Combo} COMBO", 15, Brush("#FFFFD23F"), MonoFace, bold: true);
+            dc.DrawText(c, new Point(Math.Max(4, (w - c.Width) / 2), top + 4));
+        }
     }
 
     // ------------------------------------------------------------ 开播倒计时
@@ -455,6 +538,19 @@ public sealed class OverlayCanvas : FrameworkElement
         double tipY = top + (h + big.Height) / 2 - 6;
         if (tipY + tip.Height < bottom)
             dc.DrawText(tip, new Point((w - tip.Width) / 2, tipY));
+    }
+
+    // ------------------------------------------------------------ 解锁可视化
+
+    private void DrawUnlockedFrame(DrawingContext dc, double w, double h)
+    {
+        dc.DrawRoundedRectangle(null, new Pen(Brush("#CCFFB300"), 2), new Rect(1, 1, w - 2, h - 2), 9, 9);
+        double barH = 20;
+        dc.DrawRoundedRectangle(Brush("#33FFB300"), null, new Rect(1, 1, w - 2, barH), 9, 9);
+        var grip = Text("≡  按住这里拖动我（鼠标放到游戏里也行）", 11, Brush("#FFFFC94D"), UiFace, bold: true);
+        dc.DrawText(grip, new Point(Math.Max(4, (w - grip.Width) / 2), 3));
+        var hint = Text("Ctrl+滚轮缩放 · 右键菜单 · Alt+L 锁定", 10, Brush("#B3FFC94D"), UiFace);
+        dc.DrawText(hint, new Point(Math.Max(4, (w - hint.Width) / 2), h - hint.Height - 18));
     }
 
     // ------------------------------------------------------------ 公共绘制
