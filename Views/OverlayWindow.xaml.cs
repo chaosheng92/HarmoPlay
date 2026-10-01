@@ -514,7 +514,7 @@ public sealed class OverlayCanvas : FrameworkElement
         for (int i = 0; i < lanes; i++)
         {
             double x = i * (laneW + gap);
-            dc.DrawRoundedRectangle(Brush("#18FFFFFF"), null, new Rect(x, top, laneW, Math.Max(10, bottom - top)), 5, 5);
+            dc.DrawRoundedRectangle(Brush("#0EFFFFFF"), null, new Rect(x, top, laneW, Math.Max(10, bottom - top)), 5, 5);
             dc.DrawLine(new Pen(Brush("#14FFFFFF"), 1), new Point(x + laneW + gap / 2, top), new Point(x + laneW + gap / 2, bottom));
         }
 
@@ -643,19 +643,28 @@ public sealed class OverlayCanvas : FrameworkElement
     private void DrawBlock(DrawingContext dc, Rect rect, Chord chord, bool highlight, bool showKey, bool dimmed = false)
     {
         var color = ParseColor(chord.Color);
-        byte alpha = dimmed ? (byte)0x55 : highlight ? (byte)0xF2 : (byte)0xC0;
+        // 自然音是白色块：叠在浅色通道上会"发飘"，所以要画得更实、并给它深色描边和深色文字
+        bool pale = color.R > 200 && color.G > 200 && color.B > 200;
+        byte alpha = dimmed ? (byte)0x78 : highlight ? (byte)0xFF : (byte)0xEA;
         var fill = new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));
         fill.Freeze();
 
         var pen = highlight
             ? new Pen(Brushes.White, 2)
-            : new Pen(new SolidColorBrush(Color.FromArgb(dimmed ? (byte)0x30 : (byte)0x70, 255, 255, 255)), 1);
+            : pale
+                ? new Pen(new SolidColorBrush(Color.FromArgb(dimmed ? (byte)0x99 : (byte)0xDD, 0x0B, 0x10, 0x18)), 1.5)
+                : new Pen(new SolidColorBrush(Color.FromArgb(dimmed ? (byte)0x40 : (byte)0x88, 255, 255, 255)), 1);
 
         dc.DrawRoundedRectangle(fill, pen, rect, 4, 4);
 
         if (!showKey || rect.Width <= 14 || rect.Height < 11) return;
         var label = chord.Text;
-        var ft = Text(label, Math.Min(14, rect.Width / 2.2), Brushes.White, MonoFace, bold: true);
+        var labelColor = pale && !highlight
+            ? Color.FromRgb(0x0B, 0x10, 0x18)          // 白块 → 深色字
+            : Color.FromRgb(0xFF, 0xFF, 0xFF);         // 其它 → 白字
+        var labelBrush = new SolidColorBrush(labelColor);
+        labelBrush.Freeze();
+        var ft = Text(label, Math.Min(14, rect.Width / 2.2), labelBrush, MonoFace, bold: true);
         if (ft.Height + 2 <= rect.Height)
             dc.DrawText(ft, new Point(rect.X + (rect.Width - ft.Width) / 2, rect.Y + (rect.Height - ft.Height) / 2));
     }
@@ -691,5 +700,6 @@ public sealed class OverlayCanvas : FrameworkElement
         }
     }
 }
+
 
 
