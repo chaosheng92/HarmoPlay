@@ -130,6 +130,10 @@ public partial class MainWindow : Window
                 Close();
             }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
+        // --practice：启动即进入练习模式
+        if (argv.Any(a => a.Equals("--practice", StringComparison.OrdinalIgnoreCase)))
+            Dispatcher.InvokeAsync(() => EnterPracticeMode(), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
         // --settings：启动后直接打开二级设置菜单
         int si = Array.FindIndex(argv, a => a.Equals("--settings", StringComparison.OrdinalIgnoreCase));
         if (si >= 0)
@@ -1381,6 +1385,7 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
 
 
 
