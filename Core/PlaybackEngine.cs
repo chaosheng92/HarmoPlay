@@ -72,6 +72,19 @@ public sealed class PlaybackEngine : IDisposable
     public event Action? Finished;
     public event Action<string>? Status;
     public event Action<int, int>? Progress;
+    /// <summary>跟谱弹奏判定：index、结论（ok / wrong / miss / hold）、说明。</summary>
+    public event Action<int, string, string>? FollowJudged;
+
+    public int FollowCorrect { get; private set; }
+    public int FollowWrong { get; private set; }
+    public int FollowMissed { get; private set; }
+
+    public void ResetFollowStats()
+    {
+        FollowCorrect = 0;
+        FollowWrong = 0;
+        FollowMissed = 0;
+    }
 
     public bool IsRunning => _thread is { IsAlive: true };
     public bool IsPaused => _pause;
@@ -80,6 +93,10 @@ public sealed class PlaybackEngine : IDisposable
 
     /// <summary>当前曲谱的记谱法。</summary>
     public NotationKind Notation => _notation;
+    /// <summary>是否处于跟谱弹奏模式。</summary>
+    public bool FollowMode => _options.WaitForInput;
+    /// <summary>开播倒计时剩余秒数（0 = 没在倒计时），供悬浮窗显示大字。</summary>
+    public int CountdownValue { get; private set; }
     /// <summary>一拍多少毫秒（已计入速度倍率），供悬浮窗下落模式换算坐标。</summary>
     public double BeatMs => _beatMs;
     /// <summary>整首曲谱总时长（毫秒）。</summary>
@@ -117,6 +134,7 @@ public sealed class PlaybackEngine : IDisposable
         _inProgress = -1;
         CurrentIndex = -1;
         CurrentPass = 0;
+        ResetFollowStats();
         _gate.Set();
         _thread = new Thread(Run) { IsBackground = true, Name = "HarmoPlay.Playback", Priority = ThreadPriority.AboveNormal };
         _thread.Start();
@@ -196,16 +214,18 @@ public sealed class PlaybackEngine : IDisposable
                 pass++;
                 CurrentPass = pass;
 
-                if (pass == 1 && _options.CountdownSeconds > 0 && !waitMode)
+                if (pass == 1 && _options.CountdownSeconds > 0)
                 {
                     for (int s = _options.CountdownSeconds; s > 0 && !_stop; s--)
                     {
-                        Status?.Invoke($"倒计时 {s} 秒…");
-                        if (!Sleep(1000)) return;
+                        CountdownValue = s;
+                        Status?.Invoke($"倒计时 {s} 秒…（准备好，{(waitMode ? "跟谱弹奏" : "自动弹奏")}即将开始）");
+                        if (!Sleep(1000)) { CountdownValue = 0; return; }
                     }
+                    CountdownValue = 0;
                 }
 
-                Status?.Invoke(waitMode ? "跟练模式：请按出高亮的音" : "演奏中");
+                Status?.Invoke(waitMode ? "跟谱弹奏：请按出高亮的音" : "自动弹奏：程序正在按键");
 
                 for (int i = 0; i < _notes.Count && !_stop; i++)
                 {
@@ -241,10 +261,9 @@ public sealed class PlaybackEngine : IDisposable
                     if (waitMode)
                     {
                         _inProgress = i;
-                        bool ok = WaitForUser(chord, startMs);
                         NoteStarted?.Invoke(i);
+                        if (!FollowPlay(note, chord, i)) return;
                         NoteFinished?.Invoke(i);
-                        if (!ok) return;
                         continue;
                     }
 
@@ -297,24 +316,102 @@ public sealed class PlaybackEngine : IDisposable
         }
     }
 
-    /// <summary>跟练模式：等待用户按对（超时 20 秒则跳过）。</summary>
-    private bool WaitForUser(Chord chord, double startMs)
+    /// <summary>跟谱弹奏：等用户按对当前的音（可配严格判定、按住整拍、按错提示、超时跳过）。</summary>
+    private bool FollowPlay(ScoreNote note, Chord chord, int index)
     {
-        Status?.Invoke($"请按 {chord.Detail}");
-        double deadline = _watch.Elapsed.TotalMilliseconds - _pauseOffsetMs + 20000;
+        Status?.Invoke($"跟谱弹奏：请弹 {chord.Detail}");
+        double timeoutMs = _options.FollowTimeoutSeconds <= 0 ? double.MaxValue : _options.FollowTimeoutSeconds * 1000.0;
+        double waited = 0;
+        string? lastWrong = null;
+
         while (!_stop)
         {
-            if (_pause && !_gate.Wait(100)) continue;
-            if (chord.IsKeyHeldByUser()) return true;
-            if (_watch.Elapsed.TotalMilliseconds - _pauseOffsetMs > deadline)
+            if (_pause && !_gate.Wait(50)) continue;
+            if (_stop) return false;
+
+            bool hit = _options.FollowStrictKey ? chord.IsHeldByUser() : chord.IsKeyHeldByUser();
+            if (hit)
             {
-                Status?.Invoke($"超时跳过（应为 {chord.Detail}）");
+                FollowCorrect++;
+                FollowJudged?.Invoke(index, "ok", chord.Detail);
+                if (_options.FollowRequireHold && !HoldForDuration(note, chord, index)) return false;
+                WaitRelease(chord);
                 return true;
             }
-            Thread.Sleep(4);
+
+            if (_options.FollowCountErrors)
+            {
+                var wrong = WrongKeyDown(chord);
+                if (wrong != null && wrong != lastWrong)
+                {
+                    lastWrong = wrong;
+                    FollowWrong++;
+                    FollowJudged?.Invoke(index, "wrong", $"按了 {wrong}，应为 {chord.Text}");
+                    Status?.Invoke($"按错了：你按的是 {wrong}，这里应该弹 {chord.Detail}");
+                }
+                else if (wrong == null)
+                {
+                    lastWrong = null;
+                }
+            }
+
+            waited += 8;
+            if (waited > timeoutMs)
+            {
+                FollowMissed++;
+                FollowJudged?.Invoke(index, "miss", "超时跳过");
+                Status?.Invoke($"超时，跳过「{note.Raw}」（应为 {chord.Detail}）");
+                return true;
+            }
+            Thread.Sleep(8);
         }
         return false;
     }
+
+    /// <summary>按住整拍判定：按不够就记一次"漏"。</summary>
+    private bool HoldForDuration(ScoreNote note, Chord chord, int index)
+    {
+        double need = Math.Max(120, note.Beats * _beatMs);
+        double held = 0;
+        while (!_stop && held < need)
+        {
+            if (_pause && !_gate.Wait(50)) continue;
+            if (!chord.IsKeyHeldByUser())
+            {
+                FollowMissed++;
+                FollowJudged?.Invoke(index, "miss", "没按住整拍");
+                Status?.Invoke($"「{note.Raw}」没按住整拍（需要 {need:0} 毫秒）");
+                return true;
+            }
+            Thread.Sleep(8);
+            held += 8;
+        }
+        FollowJudged?.Invoke(index, "hold", $"{need:0} 毫秒");
+        return true;
+    }
+
+    /// <summary>等用户松开，避免同一次按键被下一个音重复计数。</summary>
+    private void WaitRelease(Chord chord)
+    {
+        int guard = 0;
+        while (!_stop && chord.IsKeyHeldByUser() && guard++ < 250)
+            Thread.Sleep(8);
+    }
+
+    /// <summary>检测是否按了琴键里"别的"键（用于跟谱弹奏的按错提示）。</summary>
+    private string? WrongKeyDown(Chord expected)
+    {
+        foreach (var name in _map.Keys)
+        {
+            if (!Enum.TryParse<Key>(name, true, out var key) || key == Key.None) continue;
+            if (key == expected.Key) continue;
+            if (InputSender.IsDown(key)) return ScoreParser.PrettyKey(name);
+        }
+        return null;
+    }
+
+    /// <summary>跟谱弹奏：等待用户按对（旧接口，保留兼容）。</summary>
+    private bool WaitForUser(Chord chord, double startMs) => FollowPlay(new ScoreNote { Raw = "", Degree = 0 }, chord, -1);
 
     private bool WaitUntil(double targetMs)
     {

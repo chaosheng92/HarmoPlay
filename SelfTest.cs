@@ -142,6 +142,15 @@ public static class SelfTest
             Log($"  InputGuard 强制松开：已执行 {InputGuard.ReleaseCount} 次，最近原因「{InputGuard.LastReason}」");
 
             Log("");
+            Log("-- 免责声明与自动弹奏风险确认 --");
+            var disclaimer = Views.DisclaimerWindow.FullText;
+            Log($"  完整声明 {disclaimer.Length} 字；含封号风险：{disclaimer.Contains("封禁")}；含责任声明：{disclaimer.Contains("自行承担")}；含不联网说明：{disclaimer.Contains("不联网")}");
+            var freshSettings = new AppSettings();
+            Log($"  新用户默认：DisclaimerShown={freshSettings.DisclaimerShown}、AutoPlayAccepted={freshSettings.AutoPlayAccepted}、AutoPlayWarnDisabled={freshSettings.AutoPlayWarnDisabled}" +
+                "（都为 False = 首次启动弹声明，开启自动弹奏会拦截）");
+            Log($"  默认演奏方式：{freshSettings.Playback.ModeText}；开播倒计时 {freshSettings.Playback.CountdownSeconds} 秒");
+
+            Log("");
             Log("-- 曲谱库内容 --");
             int bad = 0;
             foreach (var song in lib.Songs.Take(30))

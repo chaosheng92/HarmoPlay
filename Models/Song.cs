@@ -97,13 +97,28 @@ public sealed class PlaybackOptions
     public double Speed { get; set; } = 1.0;
     public int GapMs { get; set; } = 30;
     public int LeadMs { get; set; } = 20;
-    public int CountdownSeconds { get; set; }
+    public int CountdownSeconds { get; set; } = 3;
     public int RepeatTimes { get; set; } = 1;
+    /// <summary>false = 自动弹奏（程序按键）；true = 跟谱弹奏（等你按对再走下一个）。</summary>
     public bool WaitForInput { get; set; }
+
+    // ---- 跟谱弹奏的细节 ----
+    /// <summary>严格判定：必须按对琴键（带变调的音还要求按对鼠标键）。关掉则按任意琴键都算过。</summary>
+    public bool FollowStrictKey { get; set; } = true;
+    /// <summary>要求按住整拍才算完成（长音按不够会记一次"漏"）。</summary>
+    public bool FollowRequireHold { get; set; }
+    /// <summary>单个音等待多少秒后自动跳过，0 = 一直等。</summary>
+    public int FollowTimeoutSeconds { get; set; } = 20;
+    /// <summary>按错时提示并统计。</summary>
+    public bool FollowCountErrors { get; set; } = true;
+
     public bool LegatoSameKey { get; set; } = true;
     public int MinHoldMs { get; set; } = 60;
     /// <summary>只按白键、不发送任何鼠标修饰键（彻底不碰鼠标，代价是变调失效）。</summary>
     public bool SuppressMouseModifiers { get; set; }
+
+    [JsonIgnore]
+    public string ModeText => WaitForInput ? "跟谱弹奏" : "自动弹奏";
 
     public PlaybackOptions Clone() => (PlaybackOptions)MemberwiseClone();
 }
@@ -135,6 +150,14 @@ public sealed class AppSettings
     public string IssuesUrl { get; set; } = "https://github.com/你的用户名/HarmoPlay/issues/new/choose";
     public DateTime? LastUpdateCheck { get; set; }
     public string LastUpdateResult { get; set; } = "";
+
+    // ---- 免责声明与自动弹奏风险确认 ----
+    /// <summary>是否已展示过完整免责声明。</summary>
+    public bool DisclaimerShown { get; set; }
+    /// <summary>是否已同意过"自动弹奏"的风险提示。</summary>
+    public bool AutoPlayAccepted { get; set; }
+    /// <summary>用户勾选了"以后不再提醒"。</summary>
+    public bool AutoPlayWarnDisabled { get; set; }
 }
 
 public static class DefaultHotkeys

@@ -10,19 +10,43 @@
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- 免责声明横幅 -->
+        <Border x:Name="DisclaimerBar" Grid.Row="0" Background="#2EFF5A5A" BorderBrush="#66FF5A5A"
+                BorderThickness="1" CornerRadius="8" Padding="10,7" Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock x:Name="TxtDisclaimer" Foreground="#FFFFD9D9" FontSize="12" TextWrapping="Wrap"
+                               Text="⚠ 免责声明：本软件的「自动弹奏」通过模拟键盘 / 鼠标按键实现，属于第三方辅助操作。多数游戏将其视为违规，存在账号被警告、限制或封禁的风险，是否使用由你自行决定并承担后果；「跟谱弹奏」不发送任何按键，仅作谱面提示，无此风险。"/>
+                    <TextBlock x:Name="TxtDisclaimerMore" FontSize="11" Foreground="#FFB98A8A" Margin="0,3,0,0"
+                               Visibility="Collapsed"
+                               Text="（免责声明已收起，点右侧「展开」查看）"/>
+                </StackPanel>
+                <Button Grid.Column="1" x:Name="BtnDisclaimerDetail" Content="完整声明" Margin="8,0,0,0" Click="OnShowDisclaimer"/>
+                <Button Grid.Column="2" x:Name="BtnDisclaimerToggle" Content="收起" Margin="8,0,0,0" Click="OnToggleDisclaimer"/>
+            </Grid>
+        </Border>
+
         <!-- 工具栏 -->
-        <Border Grid.Row="0" Background="{StaticResource Panel}" CornerRadius="8" Padding="10,8" Margin="0,0,0,10">
+        <Border Grid.Row="1" Background="{StaticResource Panel}" CornerRadius="8" Padding="10,8" Margin="0,0,0,10">
             <WrapPanel VerticalAlignment="Center">
                 <Button x:Name="BtnPlay" Content="▶ 播放 / 暂停" Style="{StaticResource PrimaryButton}" Click="OnPlayPause" MinWidth="130"/>
                 <Button x:Name="BtnStop" Content="■ 停止" Click="OnStop"/>
                 <Button Content="⏮ 上一首" Click="OnPrevSong"/>
                 <Button Content="⏭ 下一首" Click="OnNextSong"/>
                 <Border Width="1" Background="{StaticResource Line}" Margin="6,2,14,2"/>
-                <CheckBox x:Name="ChkWaitMode" Content="跟练模式（等你按键）" Click="OnWaitModeChanged"/>
+                <TextBlock Text="演奏方式" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <ComboBox x:Name="ComboPlayMode" Width="196" Margin="0,0,10,0" SelectionChanged="OnPlayModeChanged"
+                          ToolTip="自动弹奏：程序自己按键弹完整首；跟谱弹奏：程序不发按键，等你按对当前的音再走下一个（Alt+T 切换）"/>
                 <CheckBox x:Name="ChkOverlay" Content="显示悬浮窗" Click="OnOverlayToggle"/>
                 <Border Width="1" Background="{StaticResource Line}" Margin="6,2,14,2"/>
                 <Button Content="导入鼠鼠口琴谱曲库" Click="OnImportSquirrel"/>
@@ -36,7 +60,7 @@
         </Border>
 
         <!-- 主体 -->
-        <TabControl Grid.Row="1" x:Name="Tabs">
+        <TabControl Grid.Row="2" x:Name="Tabs">
 
             <!-- 曲谱库 -->
             <TabItem Header="曲谱库">
@@ -134,6 +158,10 @@
                                                    Foreground="#9AA4B5" FontSize="12" Margin="0,4,0,0"/>
                                         <ProgressBar x:Name="PrgSong" Height="6" Margin="0,10,0,0" Minimum="0" Maximum="100"
                                                      Foreground="#4A9DFF" Background="#22FFFFFF" BorderThickness="0"/>
+                                        <TextBlock x:Name="TxtPlayMode" Text="自动弹奏" HorizontalAlignment="Center"
+                                                   Foreground="#8FA0B5" FontSize="12" Margin="0,8,0,0"/>
+                                        <TextBlock x:Name="TxtFollowStats" Text="" HorizontalAlignment="Center"
+                                                   Foreground="#4CD964" FontSize="12"/>
                                     </StackPanel>
                                 </Border>
 
@@ -492,6 +520,29 @@
                                 </StackPanel>
                             </GroupBox>
 
+                            <GroupBox Header="跟谱弹奏（等你按键）">
+                                <StackPanel>
+                                    <TextBlock Style="{StaticResource Caption}"
+                                               Text="演奏方式选「跟谱弹奏」时生效：程序不发送任何按键，把悬浮窗/主界面当谱面，等你按对当前的音再走下一个。"/>
+                                    <CheckBox x:Name="ChkFollowStrict" Content="严格判定：必须按对琴键（带变调的音还要按住对应鼠标键）"
+                                              Click="OnFollowSettingChanged"/>
+                                    <CheckBox x:Name="ChkFollowHold" Content="要求按住整拍（长音按不够记一次「漏」）"
+                                              Click="OnFollowSettingChanged"/>
+                                    <CheckBox x:Name="ChkFollowErrors" Content="按错时提示并统计"
+                                              Click="OnFollowSettingChanged"/>
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="等不到就跳过" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="TxtFollowTimeout" Grid.Column="1" Width="56" TextChanged="OnFollowSettingChanged"/>
+                                        <TextBlock Grid.Column="2" Text="秒（0 = 一直等）" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="#8FA0B5" FontSize="12"/>
+                                    </Grid>
+                                </StackPanel>
+                            </GroupBox>
+
                             <GroupBox Header="更新与问题反馈">
                                 <StackPanel>
                                     <TextBlock x:Name="TxtVersionInfo" FontSize="12" Foreground="#9AA4B5"/>
@@ -531,7 +582,7 @@
         </TabControl>
 
         <!-- 状态栏 -->
-        <Border Grid.Row="2" Background="{StaticResource Panel}" CornerRadius="6" Padding="10,6" Margin="0,10,0,0">
+        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="6" Padding="10,6" Margin="0,10,0,0">
             <Grid>
                 <TextBlock x:Name="TxtStatus" Text="就绪"/>
                 <TextBlock x:Name="TxtVersion" HorizontalAlignment="Right" Foreground="#8FA0B5" FontSize="12"/>

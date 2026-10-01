@@ -91,6 +91,8 @@ public partial class MainWindow : Window
             UpdatePlayButton();
         });
         _engine.PassFinished += p => Dispatcher.InvokeAsync(() => SetStatus($"第 {p} 遍完成"));
+        _engine.FollowJudged += (i, verdict, detail) =>
+            Dispatcher.InvokeAsync(() => OnFollowJudged(i, verdict, detail));
 
         _interruptTimer.Tick += OnInterruptTick;
         _interruptTimer.Start();
@@ -100,7 +102,80 @@ public partial class MainWindow : Window
         {
             if (ListSongs.Items.Count > 0 && ListSongs.SelectedIndex < 0)
                 ListSongs.SelectedIndex = 0;
+
+            if (!_lib.Settings.DisclaimerShown)
+            {
+                _lib.Settings.DisclaimerShown = true;
+                LibraryStore.Save(_lib);
+                ShowDisclaimer(false, "首次使用：请先阅读免责声明");
+            }
         };
+    }
+
+    // ================================================================ 免责声明 / 风险确认
+
+    private void ShowDisclaimer(bool consent, string header)
+    {
+        var dlg = new DisclaimerWindow(new DisclaimerWindow.Mode
+        {
+            IsConsent = consent,
+            Header = header,
+            ShowDontAsk = consent,
+        })
+        { Owner = this };
+        dlg.ShowDialog();
+    }
+
+    private void OnShowDisclaimer(object sender, RoutedEventArgs e)
+        => ShowDisclaimer(false, "免责声明（完整版）");
+
+    private void OnToggleDisclaimer(object sender, RoutedEventArgs e)
+    {
+        bool collapse = TxtDisclaimer.Visibility == Visibility.Visible;
+        TxtDisclaimer.Visibility = collapse ? Visibility.Collapsed : Visibility.Visible;
+        TxtDisclaimerMore.Visibility = collapse ? Visibility.Visible : Visibility.Collapsed;
+        BtnDisclaimerToggle.Content = collapse ? "展开" : "收起";
+    }
+
+    /// <summary>开启自动弹奏前的风险确认；返回 false 表示用户选择"不同意"。</summary>
+    /// <param name="switching">true = 正在把演奏方式切到自动弹奏；false = 直接开始播放。</param>
+    private bool ConfirmAutoPlay(bool switching)
+    {
+        var s = _lib.Settings;
+        if (switching && s.AutoPlayWarnDisabled) return true;   // 勾过"不再提醒"
+        if (!switching && s.AutoPlayAccepted) return true;      // 已经同意过，播放时不再反复拦
+
+        var dlg = new DisclaimerWindow(new DisclaimerWindow.Mode
+        {
+            IsConsent = true,
+            Header = switching ? "开启「自动弹奏」前请确认风险" : "以「自动弹奏」开始前请确认风险",
+            AgreeText = "同意并开启自动弹奏",
+        })
+        { Owner = this };
+
+        bool agreed = dlg.ShowDialog() == true;
+        s.AutoPlayAccepted = agreed;
+        if (agreed) s.AutoPlayWarnDisabled = dlg.DontAskAgain;
+        LibraryStore.Save(_lib);
+
+        if (!agreed)
+        {
+            Program.Trace("用户不同意自动弹奏风险提示，已保持/切换为跟谱弹奏");
+            SetStatus("你选择了「不同意」：改用「跟谱弹奏」（不发送任何按键，仅作谱面提示）");
+        }
+        return agreed;
+    }
+
+    /// <summary>用户不同意自动弹奏时，切回跟谱弹奏。</summary>
+    private void ForceFollowMode()
+    {
+        _loading = true;
+        ComboPlayMode.SelectedIndex = 1;
+        _loading = false;
+        _lib.Settings.Playback.WaitForInput = true;
+        TxtPlayMode.Text = _lib.Settings.Playback.ModeText;
+        LibraryStore.Save(_lib);
+        RefreshFollowStats();
     }
 
     // ================================================================ 初始化
@@ -120,7 +195,15 @@ public partial class MainWindow : Window
         TxtCountdown.Text = p.CountdownSeconds.ToString();
         TxtRepeat.Text = p.RepeatTimes.ToString();
         ChkLegato.IsChecked = p.LegatoSameKey;
-        ChkWaitMode.IsChecked = p.WaitForInput;
+
+        // 演奏方式：自动弹奏 / 跟谱弹奏
+        ComboPlayMode.ItemsSource = new[] { "自动弹奏（程序自己按键）", "跟谱弹奏（等你按键）" };
+        ComboPlayMode.SelectedIndex = p.WaitForInput ? 1 : 0;
+        TxtPlayMode.Text = p.ModeText;
+        ChkFollowStrict.IsChecked = p.FollowStrictKey;
+        ChkFollowHold.IsChecked = p.FollowRequireHold;
+        ChkFollowErrors.IsChecked = p.FollowCountErrors;
+        TxtFollowTimeout.Text = p.FollowTimeoutSeconds.ToString();
 
         var o = _lib.Settings.Overlay;
         ChkOverlay.IsChecked = o.Visible;
@@ -324,7 +407,11 @@ public partial class MainWindow : Window
         p.CountdownSeconds = ParseInt(TxtCountdown.Text, p.CountdownSeconds, 0, 30);
         p.RepeatTimes = ParseInt(TxtRepeat.Text, p.RepeatTimes, 0, 999);
         p.LegatoSameKey = ChkLegato.IsChecked == true;
-        p.WaitForInput = ChkWaitMode.IsChecked == true;
+        p.WaitForInput = ComboPlayMode.SelectedIndex == 1;
+        p.FollowStrictKey = ChkFollowStrict.IsChecked == true;
+        p.FollowRequireHold = ChkFollowHold.IsChecked == true;
+        p.FollowCountErrors = ChkFollowErrors.IsChecked == true;
+        p.FollowTimeoutSeconds = ParseInt(TxtFollowTimeout.Text, p.FollowTimeoutSeconds, 0, 600);
         return p;
     }
 
@@ -352,6 +439,11 @@ public partial class MainWindow : Window
             SetStatus("请先在左侧选择一首曲谱");
             return;
         }
+
+        // 自动弹奏需要风险确认；不同意就自动切到跟谱弹奏
+        if (!_lib.Settings.Playback.WaitForInput && !ConfirmAutoPlay(switching: false))
+            ForceFollowMode();
+
         ParseCurrent(updateEditorPreviewOnly: false);
         if (_parsed == null || _parsed.Notes.Count == 0)
         {
@@ -369,7 +461,11 @@ public partial class MainWindow : Window
         _interruptedBy = "";
         _engine.Play(_parsed.Notes, _lib.EffectiveKeyMap, _parsed.Notation, bpm, options);
         UpdatePlayButton();
-        SetStatus(options.WaitForInput ? "跟练模式：按提示的键" : $"演奏中 · {bpm:0.#} BPM · 速度 {options.Speed:0.00}x");
+        SetStatus(options.WaitForInput
+            ? $"跟谱弹奏：请按提示的键（严格判定 {(options.FollowStrictKey ? "开" : "关")}、超时 {options.FollowTimeoutSeconds} 秒）"
+            : $"自动弹奏 · {bpm:0.#} BPM · 速度 {options.Speed:0.00}x");
+        TxtPlayMode.Text = options.ModeText;
+        RefreshFollowStats();
     }
 
     private void OnStop(object sender, RoutedEventArgs e)
@@ -409,7 +505,8 @@ public partial class MainWindow : Window
         BtnPlay.Content = _engine.IsRunning
             ? (_engine.IsPaused ? "▶ 继续" : "⏸ 暂停")
             : "▶ 播放 / 暂停";
-        ChkWaitMode.IsChecked = _lib.Settings.Playback.WaitForInput;
+        ComboPlayMode.SelectedIndex = _lib.Settings.Playback.WaitForInput ? 1 : 0;
+        TxtPlayMode.Text = _lib.Settings.Playback.ModeText;
     }
 
     private void OnNoteStarted(int index)
@@ -473,17 +570,72 @@ public partial class MainWindow : Window
         _lib.Settings.Playback = BuildOptions();
     }
 
-    private void OnWaitModeChanged(object sender, RoutedEventArgs e)
+    private void OnPlayModeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
-        _lib.Settings.Playback.WaitForInput = ChkWaitMode.IsChecked == true;
-        SetStatus(ChkWaitMode.IsChecked == true ? "已切换到跟练模式（播放时不发按键，等你按）" : "已切换到自动演奏模式");
+        bool follow = ComboPlayMode.SelectedIndex == 1;
+
+        // 开启自动弹奏前必须经过风险确认；不同意就留在跟谱弹奏
+        if (!follow && !ConfirmAutoPlay(switching: true))
+        {
+            ForceFollowMode();
+            return;
+        }
+
+        _lib.Settings.Playback.WaitForInput = follow;
+        TxtPlayMode.Text = _lib.Settings.Playback.ModeText;
+        LibraryStore.Save(_lib);
+
+        SetStatus(follow
+            ? "已切换到「跟谱弹奏」：程序不发按键，等你按对当前的音再走下一个（Alt+T 切换）"
+            : "已切换到「自动弹奏」：程序按 BPM 自动按键弹完整首（Alt+T 切换）");
+
+        // 播放中切换需要重建引擎参数，直接重开一遍
+        if (_engine.IsRunning)
+        {
+            _engine.Stop();
+            StartPlayback();
+        }
+        else
+        {
+            RefreshFollowStats();
+            UpdatePlayButton();
+        }
+    }
+
+    private void OnFollowSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        var p = _lib.Settings.Playback;
+        p.FollowStrictKey = ChkFollowStrict.IsChecked == true;
+        p.FollowRequireHold = ChkFollowHold.IsChecked == true;
+        p.FollowCountErrors = ChkFollowErrors.IsChecked == true;
+        p.FollowTimeoutSeconds = ParseInt(TxtFollowTimeout.Text, p.FollowTimeoutSeconds, 0, 600);
+        LibraryStore.Save(_lib);
+    }
+
+    private void OnFollowJudged(int index, string verdict, string detail)
+    {
+        RefreshFollowStats();
+        if (verdict == "wrong")
+            TxtNowDetail.Text = "按错了：" + detail;
+        else if (verdict == "miss")
+            TxtNowDetail.Text = "漏掉了：" + detail;
+    }
+
+    private void RefreshFollowStats()
+    {
+        var p = _lib.Settings.Playback;
+        TxtFollowStats.Text = p.WaitForInput
+            ? $"✔ {_engine.FollowCorrect}　✖ {_engine.FollowWrong}　漏 {_engine.FollowMissed}"
+            : "";
     }
 
     // ================================================================ 热键
 
     private void HandleHotkey(string action)
     {
+        Program.Trace($"热键触发：{action}");
         switch (action)
         {
             case DefaultHotkeys.PlayPause:
@@ -513,8 +665,7 @@ public partial class MainWindow : Window
                 }
                 break;
             case DefaultHotkeys.ToggleWait:
-                ChkWaitMode.IsChecked = ChkWaitMode.IsChecked != true;
-                OnWaitModeChanged(this, new RoutedEventArgs());
+                ComboPlayMode.SelectedIndex = ComboPlayMode.SelectedIndex == 1 ? 0 : 1;
                 break;
             case DefaultHotkeys.PanicRelease:
                 OnPanicRelease(this, new RoutedEventArgs());

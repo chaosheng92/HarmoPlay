@@ -224,6 +224,7 @@ public sealed class OverlayCanvas : FrameworkElement
             if (Settings.Mode == 1) DrawFalling(dc, w, lanesTop, lanesBottom);
             else DrawStacked(dc, w, lanesTop, lanesBottom);
         }
+        if (Playback is { CountdownValue: > 0 }) DrawCountdown(dc, w, lanesTop, lanesBottom);
         DrawFooter(dc, w, h);
 
         if (Score == null || Score.Notes.Count == 0)
@@ -242,13 +243,16 @@ public sealed class OverlayCanvas : FrameworkElement
         if (string.IsNullOrWhiteSpace(title)) title = "口琴谱演奏器";
         var bpm = Score?.Bpm > 0 ? $"{Score!.Bpm:0.#} BPM" : "";
         var mode = Settings.Mode == 1 ? "下落" : "堆叠";
+        var play = Playback is { IsRunning: true } && Playback.Notation == NotationKind.Pitch ? "" : "";
+        _ = play;
+        var modeName = Playback?.FollowMode == true ? "跟谱" : "自动";
         var index = Playback is { IsRunning: true } ? Playback.CurrentIndex : CurrentIndex;
         var pos = Score != null && Score.Notes.Count > 0 ? $"{Math.Max(index + 1, 0)}/{Score.Notes.Count}" : "";
 
         var t = Text(title, 13, Brush("#E6EAF2"), UiFace, bold: true);
         dc.DrawText(t, new Point(2, 3));
 
-        var right = Text($"{mode}  {bpm}  {pos}", 11, Brush("#8FA0B5"), MonoFace);
+        var right = Text($"{modeName}·{mode}  {bpm}  {pos}", 11, Brush("#8FA0B5"), MonoFace);
         dc.DrawText(right, new Point(Math.Max(2, w - right.Width - 2), 5));
 
         dc.DrawLine(new Pen(Brush("#26FFFFFF"), 1), new Point(0, headerH - 3), new Point(w, headerH - 3));
@@ -431,6 +435,26 @@ public sealed class OverlayCanvas : FrameworkElement
             var t = Text("按 Alt+1 开始下落", 12, Brush("#7A8798"), UiFace);
             dc.DrawText(t, new Point((w - t.Width) / 2, top + 4));
         }
+    }
+
+    // ------------------------------------------------------------ 开播倒计时
+
+    private void DrawCountdown(DrawingContext dc, double w, double top, double bottom)
+    {
+        int value = Playback?.CountdownValue ?? 0;
+        if (value <= 0) return;
+
+        double h = Math.Max(20, bottom - top);
+        dc.DrawRoundedRectangle(Brush("#B8000000"), null, new Rect(0, top, w, h), 6, 6);
+
+        var big = Text(value.ToString(), Math.Min(w, h) * 0.6, Brush("#FFD23F"), UiFace, bold: true);
+        dc.DrawText(big, new Point((w - big.Width) / 2, top + (h - big.Height) / 2 - 12));
+
+        var mode = Playback?.FollowMode == true ? "跟谱弹奏：等你按对再走" : "自动弹奏：程序即将按键";
+        var tip = Text($"{value} 秒后开始 · {mode}", 13, Brush("#E6EAF2"), UiFace);
+        double tipY = top + (h + big.Height) / 2 - 6;
+        if (tipY + tip.Height < bottom)
+            dc.DrawText(tip, new Point((w - tip.Width) / 2, tipY));
     }
 
     // ------------------------------------------------------------ 公共绘制
