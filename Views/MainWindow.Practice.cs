@@ -101,6 +101,43 @@ public partial class MainWindow
     /// <summary>命令行 --practice：启动即进入练习模式。</summary>
     public void EnterPracticeMode() => SetAppMode(practice: true);
 
+    /// <summary>
+    /// 命令行 --timingtest：用"每拍一个音"的谱面（120 BPM = 每 500ms）实测时间轴。
+    /// 倒计时不能被算进曲谱时间，否则开头几个音会抢跑（实测间隔会远小于 500ms）。
+    /// </summary>
+    public void RunTimingTest()
+    {
+        var parsed = ScoreParser.Parse("1 2 3 4 5 6 7 1'", "计时自检", 120, NotationKind.Pitch);
+        var options = new PlaybackOptions
+        {
+            Speed = 1,
+            CountdownSeconds = 3,
+            LeadMs = 0,
+            GapMs = 0,
+            RepeatTimes = 1,
+            WaitForInput = false,
+        };
+
+        DateTime first = DateTime.MaxValue;
+        _engine.NoteStarted += i =>
+        {
+            var now = DateTime.UtcNow;
+            if (i == 0) first = now;
+            Program.Trace($"TIMINGTEST 音{i} 相对第 1 个音 +{(now - first).TotalMilliseconds:0} ms（预期 ≈ {i * 500}）");
+        };
+        _engine.Finished += () => Program.Trace("TIMINGTEST 播放结束");
+
+        Program.Trace("TIMINGTEST 开始：3 秒倒计时后应有 8 个音，间隔应≈500ms");
+        _engine.Play(parsed.Notes, _lib.EffectiveKeyMap, NotationKind.Pitch, 120, options);
+
+        Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(9000);
+            _reallyExit = true;
+            Close();
+        }, DispatcherPriority.Background);
+    }
+
     // ================================================================ 曲谱与参数
 
     private void RefreshPracticeSongs()

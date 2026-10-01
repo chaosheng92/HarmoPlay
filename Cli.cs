@@ -124,7 +124,42 @@ public static class Cli
     public static string Validate(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
-            return "用法：HarmoPlay.exe --validate <曲名.json> [更多.json ...]";
+            return "用法：HarmoPlay.exe --validate <曲名.json|曲名.txt> [更多文件 ...]";
+
+        var text = File.ReadAllText(path, Encoding.UTF8);
+
+        // 简谱 txt / 内置 seed 格式（TITLE= / BPM= / // 注释 + 谱面）也能校验：
+        // 抽出谱面部分，转成等效 JSON 再走同一套校验。
+        if (!text.TrimStart().StartsWith("{"))
+        {
+            string Look(string key, string fallback)
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(text,
+                    $@"(?m)^\s*{key}\s*=\s*(.+?)\s*$",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                return m.Success ? m.Groups[1].Value : fallback;
+            }
+
+            var scoreLines = text
+                .Split('\n')
+                .Select(l => l.TrimEnd('\r'))
+                .Where(l =>
+                {
+                    var t = l.Trim();
+                    return t.Length > 0
+                        && !t.StartsWith("//")
+                        && !System.Text.RegularExpressions.Regex.IsMatch(t, @"^[A-Za-z_]+\s*=");
+                });
+
+            var scoreText = string.Join("\n", scoreLines);
+            var report = new Core.ValidationReport { FileName = Path.GetFileName(path) };
+            report.Infos.Add("按简谱 txt / 内置 seed 格式校验（已自动跳过 TITLE=、BPM= 与 // 注释行）");
+            Core.ScoreValidator.ValidateScoreText(report, scoreText,
+                int.TryParse(Look("BPM", "90"), out var bpmValue) ? bpmValue : 90,
+                Look("METER", "4/4"));
+            return report.ToString();
+        }
+
         return Core.ScoreValidator.ValidateJsonFile(path).ToString();
     }
 

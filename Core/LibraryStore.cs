@@ -83,6 +83,9 @@ public static class LibraryStore
     public static string SettingsPath => Path.Combine(DataDir, "settings.json");
     public static string SeedDir => Path.Combine(AppContext.BaseDirectory, "Assets", "Seed");
 
+    /// <summary>内置曲谱版本号：每次往 Assets\Seed 里加/改曲谱就 +1，老用户启动时会自动补齐。</summary>
+    public const int CurrentSeedVersion = 2;
+
     public static Library Load()
     {
         var lib = new Library();
@@ -133,7 +136,16 @@ public static class LibraryStore
         {
             SeedSamples(lib, force: lib.Songs.Count == 0);
             lib.Settings.FirstRunDone = true;
+            lib.Settings.SeedVersion = CurrentSeedVersion;
             Save(lib);
+        }
+        else if (lib.Settings.SeedVersion < CurrentSeedVersion)
+        {
+            // 内置曲谱有更新：只补缺失的（用户自己删掉的不再强塞），并且只补一次
+            var added = SeedSamples(lib, force: false);
+            lib.Settings.SeedVersion = CurrentSeedVersion;
+            Save(lib);
+            Program.Trace($"内置曲谱更新：新增 {added} 首（seed 版本 {CurrentSeedVersion}）");
         }
         return lib;
     }

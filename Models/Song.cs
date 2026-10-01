@@ -162,6 +162,12 @@ public sealed class AppSettings
 
     /// <summary>点右上角关闭时的行为：0 = 每次询问，1 = 直接退出，2 = 最小化到后台托盘。</summary>
     public int CloseAction { get; set; }
+
+    /// <summary>已释放过的内置曲谱版本（< CurrentSeedVersion 时自动补齐缺失的示例曲谱）。</summary>
+    public int SeedVersion { get; set; }
+
+    /// <summary>是否记住悬浮窗位置（关掉则每次启动回到默认位置）。</summary>
+    public bool RememberOverlayPosition { get; set; } = true;
 }
 
 public static class DefaultHotkeys
@@ -224,6 +230,7 @@ public static class HotkeyActions
         _ => action
     };
 }
+
 
 
 

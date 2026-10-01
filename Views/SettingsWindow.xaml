@@ -79,6 +79,8 @@
                                         <Button Content="清除备用" Click="OnClearOverlayHotkey2"/>
                                     </StackPanel>
 
+                                    <CheckBox x:Name="ChkRememberOverlayPos" Content="记住悬浮窗位置（下次启动 / 退出后仍保持）" IsChecked="True"
+                                  Checked="OnOverlaySettingChanged" Unchecked="OnOverlaySettingChanged"/>
                                     <TextBlock Style="{StaticResource Caption}" Margin="0,10,0,4"
                                                Text="位置微调：解锁后可直接拖动悬浮窗（拖动条会变橙色），也可以在这里精确设置 / 点箭头微调"/>
                                     <StackPanel Orientation="Horizontal">
@@ -301,6 +303,7 @@
                                         <Button Content="保存全部设置" Style="{StaticResource PrimaryButton}" Click="OnSaveAll"/>
                                         <Button Content="恢复默认设置" Click="OnResetSettings"/>
                                     </StackPanel>
+                                    <Button Content="重新导入内置曲谱（补齐示例曲谱）" HorizontalAlignment="Left" Margin="0,8,0,0" Click="OnReseedSamples"/>
                                     <Button Content="现在最小化到托盘试试" HorizontalAlignment="Left" Margin="0,8,0,0"
                                             Click="OnMinimizeToTray"/>
                                 </StackPanel>
@@ -328,6 +331,7 @@
         </StackPanel>
     </Grid>
 </Window>
+
 
 
 

@@ -102,13 +102,17 @@ public sealed class PlaybackEngine : IDisposable
     /// <summary>整首曲谱总时长（毫秒）。</summary>
     public double TotalMs { get; private set; }
 
+    /// <summary>音乐时间轴基准：倒计时结束后（以及每一遍开始时）把秒表对齐到这里，
+    /// 否则倒计时的那几秒会被算成曲谱时间，导致开头的音"抢跑"。</summary>
+    private double _timelineOffsetMs;
+
     /// <summary>演奏时间轴上的当前位置（毫秒，暂停时冻结）。</summary>
     public double PositionMs
     {
         get
         {
             if (!IsRunning && !_watch.IsRunning) return 0;
-            double now = _watch.Elapsed.TotalMilliseconds - _pauseOffsetMs;
+            double now = _watch.Elapsed.TotalMilliseconds - _timelineOffsetMs - _pauseOffsetMs;
             if (_pause) now -= _watch.Elapsed.TotalMilliseconds - _pauseStartMs;
             return Math.Max(0, now);
         }
@@ -130,6 +134,7 @@ public sealed class PlaybackEngine : IDisposable
         _stop = false;
         _pause = false;
         _pauseOffsetMs = 0;
+        _timelineOffsetMs = 0;
         _pressed = Chord.Empty;
         _inProgress = -1;
         CurrentIndex = -1;
@@ -224,6 +229,9 @@ public sealed class PlaybackEngine : IDisposable
                     }
                     CountdownValue = 0;
                 }
+
+                // 这一遍的音乐时间轴从真正开始处起算：倒计时不计入曲谱时间，重复播放每遍各自起算
+                _timelineOffsetMs = _watch.Elapsed.TotalMilliseconds;
 
                 Status?.Invoke(waitMode ? "跟谱弹奏：请按出高亮的音" : "自动弹奏：程序正在按键");
 
@@ -422,7 +430,7 @@ public sealed class PlaybackEngine : IDisposable
             {
                 if (!_gate.Wait(100)) continue;
             }
-            double now = _watch.Elapsed.TotalMilliseconds - _pauseOffsetMs;
+            double now = _watch.Elapsed.TotalMilliseconds - _timelineOffsetMs - _pauseOffsetMs;
             double remain = targetMs - now;
             if (remain <= 0) return true;
             if (remain > 16) Thread.Sleep(5);

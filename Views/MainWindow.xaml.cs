@@ -134,6 +134,10 @@ public partial class MainWindow : Window
         if (argv.Any(a => a.Equals("--practice", StringComparison.OrdinalIgnoreCase)))
             Dispatcher.InvokeAsync(() => EnterPracticeMode(), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
 
+        // --timingtest：验证倒计时不计入曲谱时间轴
+        if (argv.Any(a => a.Equals("--timingtest", StringComparison.OrdinalIgnoreCase)))
+            Dispatcher.InvokeAsync(RunTimingTest, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
         // --settings：启动后直接打开二级设置菜单
         int si = Array.FindIndex(argv, a => a.Equals("--settings", StringComparison.OrdinalIgnoreCase));
         if (si >= 0)
@@ -713,8 +717,17 @@ public partial class MainWindow : Window
                 LibraryStore.Save(_lib);
             };
         }
-        _overlay.ApplySettings(_lib.Settings.Overlay);
+        var overlaySettings = _lib.Settings.Overlay;
+        if (!_lib.Settings.RememberOverlayPosition)
+        {
+            // 不记住位置：每次都用默认位置开场
+            overlaySettings.Left = 200;
+            overlaySettings.Top = 120;
+        }
+        _overlay.ApplySettings(overlaySettings);
         _overlay.Show();
+        Program.Trace($"悬浮窗位置：Left={overlaySettings.Left:0} Top={overlaySettings.Top:0}" +
+                      $"（记住位置={_lib.Settings.RememberOverlayPosition}）");
         UpdateOverlayContent();
     }
 
@@ -1385,6 +1398,7 @@ public partial class MainWindow : Window
         return int.TryParse(text.Trim(), out var v) ? Math.Clamp(v, min, max) : fallback;
     }
 }
+
 
 
 

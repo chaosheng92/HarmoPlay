@@ -85,6 +85,19 @@ public partial class SettingsWindow : Window
 
     private void OnMinimizeToTray(object sender, RoutedEventArgs e) => _ctx.MinimizeToTray();
 
+    /// <summary>把 Assets\Seed 里缺失的内置曲谱补回来（自己删过的不会被强塞，除非文件还存在）。</summary>
+    private void OnReseedSamples(object sender, RoutedEventArgs e)
+    {
+        var added = LibraryStore.SeedSamples(_lib, force: false);
+        _lib.Settings.SeedVersion = LibraryStore.CurrentSeedVersion;
+        LibraryStore.Save(_lib);
+        _ctx.RefreshMain();
+        LoadFromLibrary();
+        SetStatus(added > 0
+            ? $"已补齐 {added} 首内置曲谱（可在「曲谱库」的「示例曲谱」分类里找到）"
+            : "内置曲谱已是最新，没有需要补齐的（同名曲谱已存在）");
+    }
+
     /// <summary>把设置读进界面（打开设置窗口时、以及恢复默认后调用）。</summary>
     public void LoadFromLibrary()
     {
@@ -101,6 +114,7 @@ public partial class SettingsWindow : Window
         TxtFollowTimeout.Text = p.FollowTimeoutSeconds.ToString();
 
         var o = _lib.Settings.Overlay;
+        ChkRememberOverlayPos.IsChecked = _lib.Settings.RememberOverlayPosition;
         ChkOverlayVisible.IsChecked = o.Visible;
         ChkOverlayClickThrough.IsChecked = o.ClickThrough;
         ChkOverlayLanes.IsChecked = o.ShowLanes;
@@ -438,6 +452,7 @@ private void OnOverlaySettingChanged(object sender, RoutedEventArgs e)
         o.HideWhilePlaying = ChkHideWhilePlaying.IsChecked == true;
         o.Opacity = SldOverlayOpacity.Value;
         o.MaxStack = ParseInt(TxtOverlayStack.Text, o.MaxStack, 1, 30);
+        _lib.Settings.RememberOverlayPosition = ChkRememberOverlayPos.IsChecked == true;
 
         // 音游下落模式
         o.Mode = ComboOverlayMode.SelectedIndex == 1 ? 1 : 0;
