@@ -200,8 +200,16 @@ public partial class MainWindow : Window
     private bool ConfirmAutoPlay(bool switching)
     {
         var s = _lib.Settings;
+        // ★ 唯一前置条件：当前必须确实处于「自动弹奏」。
+        // 跟谱弹奏 / 新手模式 / 练习模式 / 下拉未选中，一律直接放行，绝不弹窗。
+        if (ComboPlayMode.SelectedIndex != 0)
+        {
+            Program.Trace($"风险确认：跳过弹窗（当前演奏方式 index={ComboPlayMode.SelectedIndex}，不是自动弹奏）");
+            return true;
+        }
         if (switching && s.AutoPlayWarnDisabled) return true;   // 勾过"不再提醒"
         if (!switching && s.AutoPlayAccepted) return true;      // 已经同意过，播放时不再反复拦
+        Program.Trace("风险确认：弹出自动弹奏确认窗口（当前演奏方式=自动弹奏）");
 
         var dlg = new DisclaimerWindow(new DisclaimerWindow.Mode
         {
