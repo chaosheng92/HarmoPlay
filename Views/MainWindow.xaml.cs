@@ -108,11 +108,24 @@ public partial class MainWindow : Window
                 ShowOverlay();
                 await Task.Delay(1200);
                 void LogEx(string tag) => Program.Trace(
-                    $"LOCKTEST {tag}: 设置锁定={_lib.Settings.Overlay.ClickThrough} 实时穿透={_overlay?.ClickThrough} 橙框解锁态={_overlay?.Canvas.Unlocked} ex={_overlay?.ExStyleHex}");
+                    $"LOCKTEST {tag}: 设置锁定={_lib.Settings.Overlay.ClickThrough} 实时穿透={_overlay?.ClickThrough} " +
+                    $"橙框解锁态={_overlay?.Canvas.Unlocked} 位置={(int)(_overlay?.Left ?? 0)},{(int)(_overlay?.Top ?? 0)} ex={_overlay?.ExStyleHex}");
                 SetOverlayLocked(true); LogEx("① 锁定");
                 SetOverlayLocked(false); LogEx("② 解锁");
-                SetOverlayLocked(true); LogEx("③ 再锁定");
-                SetOverlayLocked(false); LogEx("④ 再解锁");
+
+                // 模拟一次"拖动"（手动拖动就是改 Left/Top，由 LocationChanged 触发持久化）
+                if (_overlay != null)
+                {
+                    _overlay.Left += 60;
+                    _overlay.Top += 40;
+                }
+                await Task.Delay(250);
+                LogEx("③ 模拟拖动后");
+
+                SetOverlayLocked(true); LogEx("④ 拖动后锁定");
+                SetOverlayLocked(false); LogEx("⑤ 再解锁（应仍在拖动后的位置、且可继续拖）");
+                SetOverlayLocked(true); LogEx("⑥ 再锁定");
+                SetOverlayLocked(false); LogEx("⑦ 再解锁");
                 _reallyExit = true;
                 Close();
             }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);

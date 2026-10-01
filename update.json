@@ -4,5 +4,5 @@
   "notes": "口琴谱演奏器 v1.0.0 首发版本：离线曲谱库 + 简谱编辑 + 自动弹奏/跟谱弹奏 + 音游下落悬浮窗；支持外部 library.json 曲谱库导入；二级设置菜单（右上角 ⚙）；输入安全（强制松开/看门狗/急停）与输入自检；关闭时可选退出或最小化到右下角托盘。使用前请阅读免责声明：自动弹奏为模拟按键，存在账号风险，请自行决定是否开启。",
   "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
   "mandatory": false,
-  "sha256": "8d6c8e7ab967cccdf1dbca79bb2eb82566336560741395f517add6293413c956"
+  "sha256": "1887befb0e23d4428465043563a22feb5e9f558401aa79368bd8dbfb7948521f"
 }

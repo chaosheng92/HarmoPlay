@@ -23,16 +23,35 @@ public partial class OverlayWindow : Window
     [DllImport("user32.dll", SetLastError = true)]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
 
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOZORDER = 0x0004;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private const uint SWP_FRAMECHANGED = 0x0020;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+        int x, int y, int cx, int cy, uint flags);
+
     public event EventHandler? SettingsChanged;
 
     private bool _clickThrough = true;
     private bool _applying;
+
+    // 手动拖动（不用 DragMove：它的模态循环可能吞掉鼠标抬起事件，导致"拖过一次就再也拖不动"）
+    private bool _dragging;
+    private Point _dragOrigin;
+    private double _dragStartLeft, _dragStartTop;
 
     public OverlayWindow()
     {
         InitializeComponent();
         Surface.MouseLeftButtonDown += OnSurfaceMouseDown;
         Root.MouseLeftButtonDown += OnSurfaceMouseDown;        // 整块窗口都能拖
+        Surface.MouseMove += OnDragMove;
+        Root.MouseMove += OnDragMove;
+        Surface.MouseLeftButtonUp += OnDragEnd;
+        Root.MouseLeftButtonUp += OnDragEnd;
         Root.ContextMenuOpening += (_, _) => UpdateMenuHeaders();
         MouseWheel += OnWheel;
         LocationChanged += (_, _) => PersistBounds();
@@ -125,6 +144,10 @@ public partial class OverlayWindow : Window
         if (_clickThrough) style |= WS_EX_TRANSPARENT;
         else style &= ~WS_EX_TRANSPARENT;
         SetWindowLong(handle, GWL_EXSTYLE, style);
+
+        // 运行时改扩展样式后需要 SWP_FRAMECHANGED 才会真正生效（否则可能出现"解锁了却点不动"）
+        SetWindowPos(handle, IntPtr.Zero, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     }
 
     public void ApplySettings(OverlaySettings s)
@@ -181,19 +204,61 @@ public partial class OverlayWindow : Window
     private void OnSurfaceMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (_clickThrough) return;
+        if (e.ChangedButton != MouseButton.Left) return;
         if (e.ClickCount == 2)
         {
             ToggleSize();
             return;
         }
+
+        // 手动拖动：记录起点，后续在 MouseMove 里按屏幕坐标差移动窗口
+        _dragging = true;
+        _dragOrigin = PointToScreen(e.GetPosition(this));
+        _dragStartLeft = Left;
+        _dragStartTop = Top;
         try
         {
-            DragMove();
+            CaptureMouse();
+            e.Handled = true;
         }
         catch
         {
-            // 拖动被取消
+            _dragging = false;
         }
+        Program.Trace($"悬浮窗开始拖动：起点={_dragStartLeft:0},{_dragStartTop:0}");
+    }
+
+    private void OnDragMove(object sender, MouseEventArgs e)
+    {
+        if (!_dragging || _clickThrough) return;
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            EndDrag("左键已松开");
+            return;
+        }
+
+        var p = PointToScreen(e.GetPosition(this));
+        var dpi = VisualTreeHelper.GetDpi(this);
+        Left = _dragStartLeft + (p.X - _dragOrigin.X) / dpi.DpiScaleX;
+        Top = _dragStartTop + (p.Y - _dragOrigin.Y) / dpi.DpiScaleY;
+    }
+
+    private void OnDragEnd(object sender, MouseButtonEventArgs e) => EndDrag("抬起");
+
+    private void EndDrag(string reason)
+    {
+        if (!_dragging) return;
+        _dragging = false;
+        try
+        {
+            ReleaseMouseCapture();
+        }
+        catch
+        {
+            // 忽略
+        }
+        PersistBounds();
+        Program.Trace($"悬浮窗拖动结束（{reason}）：位置={Left:0},{Top:0} 锁定={_clickThrough}");
     }
 
     private void ToggleSize()

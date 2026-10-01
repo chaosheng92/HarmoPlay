@@ -9,23 +9,27 @@
         <TextBlock Margin="0,0,0,12" Foreground="#9AA4B5" FontSize="12"
                    Text="退到后台后程序继续运行：全局热键照常可用，托盘图标会留在屏幕右下角（通知区域），双击即可恢复窗口。"/>
 
-        <Button x:Name="BtnExit" Click="OnExit" Margin="0,0,0,8" Padding="14,12" HorizontalContentAlignment="Left">
-            <StackPanel>
-                <TextBlock Text="退出程序" FontWeight="SemiBold"/>
-                <TextBlock Text="关闭主窗口与悬浮窗，松开所有按键并结束进程" FontSize="11" Foreground="#9AA4B5"/>
+        <Button x:Name="BtnExit" Click="OnExit" Margin="0,0,0,8" Padding="14,12"
+                HorizontalContentAlignment="Left" HorizontalAlignment="Stretch">
+            <StackPanel HorizontalAlignment="Left">
+                <TextBlock Text="退出程序" FontWeight="SemiBold" HorizontalAlignment="Left"/>
+                <TextBlock Text="关闭主窗口与悬浮窗，松开所有按键并结束进程" FontSize="11"
+                           Foreground="#9AA4B5" HorizontalAlignment="Left"/>
             </StackPanel>
         </Button>
 
         <Button x:Name="BtnBackground" Click="OnBackground" Margin="0,0,0,8" Padding="14,12"
-                HorizontalContentAlignment="Left" Style="{StaticResource PrimaryButton}">
-            <StackPanel>
-                <TextBlock Text="最小化到后台（托盘）" FontWeight="SemiBold"/>
-                <TextBlock Text="窗口收到右下角，悬浮窗与热键继续工作" FontSize="11" Foreground="#CFE0FF"/>
+                HorizontalContentAlignment="Left" HorizontalAlignment="Stretch"
+                Style="{StaticResource PrimaryButton}">
+            <StackPanel HorizontalAlignment="Left">
+                <TextBlock Text="最小化到后台（托盘）" FontWeight="SemiBold" HorizontalAlignment="Left"/>
+                <TextBlock Text="窗口收到右下角，悬浮窗与热键继续工作" FontSize="11"
+                           Foreground="#9AA4B5" HorizontalAlignment="Left"/>
             </StackPanel>
         </Button>
 
         <CheckBox x:Name="ChkRemember" Content="记住我的选择，下次不再询问（可在「设置 → 数据与关于」里改回来）"
                   Margin="0,6,0,0"/>
-        <Button Content="取消（什么都不做）" HorizontalAlignment="Right" Margin="0,12,0,0" Click="OnCancel"/>
+        <Button Content="取消" HorizontalAlignment="Right" Margin="0,12,0,0" Click="OnCancel"/>
     </StackPanel>
 </Window>
