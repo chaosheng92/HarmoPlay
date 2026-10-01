@@ -1,0 +1,41 @@
+<Window x:Class="HarmoPlay.Views.KeyMapWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="键位映射" Height="660" Width="820"
+        Background="{StaticResource Bg}"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="预设" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox x:Name="ComboPreset" Width="300" SelectionChanged="OnPresetChanged"/>
+                <Button Content="用该预设重置" Margin="10,0,0,0" Click="OnReloadPreset"/>
+            </StackPanel>
+            <TextBlock x:Name="TxtNote" Foreground="#8FA0B5" FontSize="12" Margin="0,8,0,0"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,8,0">
+                <GroupBox Header="一、八个琴键（简谱 1~8，其中 8 = 高音 1）">
+                    <StackPanel x:Name="KeyPanel"/>
+                </GroupBox>
+                <GroupBox Header="二、变调修饰（前缀 → 同时按住的鼠标键 / 键盘修饰键）">
+                    <StackPanel x:Name="ModPanel"/>
+                </GroupBox>
+                <TextBlock Foreground="#8FA0B5" FontSize="12" Margin="0,0,0,10"
+                           Text="说明：颜色用于悬浮窗音符块，默认与游戏灯带一致（白=本音、绿=降调、紫=半音、蓝=升调、黄=半+降、红=半+升）。"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="保存并应用" Style="{StaticResource PrimaryButton}" Click="OnSave"/>
+            <Button Content="取消" Click="OnCancel"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,136 @@
+using System.IO;
+using System.Text;
+using HarmoPlay.Models;
+
+namespace HarmoPlay;
+
+/// <summary>命令行模式（--import / --list / --help），便于批量导入与排查。</summary>
+public static class Cli
+{
+    public static string Import(string path)
+    {
+        var sb = new StringBuilder();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return "用法：HarmoPlay.exe --import <曲谱文件或 library.json>";
+
+            var lib = Core.LibraryStore.Load();
+            sb.AppendLine("数据目录：" + Core.LibraryStore.DataDir);
+            sb.AppendLine("导入前曲谱数：" + lib.Songs.Count);
+
+            if (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                var (imported, skipped, msg) = Core.LibraryStore.ImportSquirrelLibrary(lib, path);
+                sb.AppendLine(msg);
+            }
+            else if (Directory.Exists(path))
+            {
+                var files = Directory.GetFiles(path, "*.txt");
+                var (imported, msg) = Core.LibraryStore.ImportScoreFiles(lib, files);
+                sb.AppendLine(msg);
+            }
+            else
+            {
+                var (imported, msg) = Core.LibraryStore.ImportScoreFiles(lib, new[] { path });
+                sb.AppendLine(msg);
+            }
+
+            Core.LibraryStore.Save(lib);
+            sb.AppendLine("导入后曲谱数：" + lib.Songs.Count);
+            sb.AppendLine("分类数：" + lib.Folders.Count);
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine("导入失败：" + ex);
+        }
+        return sb.ToString();
+    }
+
+    public static string ListSongs()
+    {
+        var sb = new StringBuilder();
+        try
+        {
+            var lib = Core.LibraryStore.Load();
+            sb.AppendLine("数据目录：" + Core.LibraryStore.DataDir);
+            sb.AppendLine($"曲谱 {lib.Songs.Count} 首，分类 {lib.Folders.Count} 个");
+            var folders = lib.Folders.ToDictionary(f => f.Id, f => f.Name);
+            foreach (var song in lib.Songs)
+            {
+                var folder = song.FolderId != null && folders.TryGetValue(song.FolderId, out var n) ? n : "未分类";
+                var parsed = Core.ScoreParser.Parse(song.Score, song.Name, song.Bpm);
+                sb.AppendLine($"[{folder}] {song.DisplayName}  |  {parsed.Format}  {parsed.NoteCount} 音  {song.Bpm:0.#} BPM  ({song.Source})");
+            }
+        }
+        catch (Exception ex)
+        {
+            sb.AppendLine("失败：" + ex);
+        }
+        return sb.ToString();
+    }
+
+    public static async Task<string> CheckUpdate(string? url)
+    {
+        var lib = Core.LibraryStore.Load();
+        var target = string.IsNullOrWhiteSpace(url) ? lib.Settings.UpdateUrl : url;
+        var sb = new StringBuilder();
+        sb.AppendLine("更新接口检查");
+        sb.AppendLine("当前版本：" + Core.UpdateService.CurrentVersion);
+        sb.AppendLine("更新地址：" + target);
+        sb.AppendLine();
+
+        var info = await Core.UpdateService.CheckAsync(target);
+        sb.AppendLine(Core.UpdateService.Describe(info));
+        sb.AppendLine();
+        sb.AppendLine("原始字段：");
+        sb.AppendLine("  最新版本：" + info.LatestVersion);
+        sb.AppendLine("  发布时间：" + info.Published);
+        sb.AppendLine("  下载地址：" + info.DownloadUrl);
+        sb.AppendLine("  sha256：" + (info.Sha256 ?? "(未提供)"));
+        sb.AppendLine("  强制更新：" + (info.Mandatory ? "是" : "否"));
+
+        lib.Settings.LastUpdateCheck = DateTime.Now;
+        lib.Settings.LastUpdateResult = info.Message;
+        Core.LibraryStore.Save(lib);
+        return sb.ToString();
+    }
+
+    public static string Feedback()
+    {
+        var lib = Core.LibraryStore.Load();
+        var file = Core.Diagnostics.Export(lib);
+        return "诊断包已导出：\n" + file + "\n\n把它附到 GitHub Issue 即可（不含曲谱内容）。\n\n" + Core.Diagnostics.Build(lib);
+    }
+
+    public static string Validate(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return "用法：HarmoPlay.exe --validate <曲名.json> [更多.json ...]";
+        return Core.ScoreValidator.ValidateJsonFile(path).ToString();
+    }
+
+    public static string Help() => """
+        口琴谱演奏器 HarmoPlay —— 命令行参数
+
+          HarmoPlay.exe                 启动图形界面
+          --selftest                    运行自检并写出 selftest.log
+          --import <文件|目录>          导入曲谱（鼠鼠口琴谱 library.json / 简谱 txt / 目录内全部 txt）
+          --validate <曲名.json>        按转谱规范校验 AI 生成的曲谱文件
+          --checkupdate                 检查更新（结果写到 update-check.log）
+          --feedback                    导出诊断包（问题反馈用）到 feedback\ 目录
+          --list                        列出曲谱库内容到 library.txt
+          --help                        显示本帮助
+
+        简谱格式说明（自动识别三种）：
+          1) 三角洲可视化曲谱：TITLE=曲名 / BPM=90 / 1 2 3 4 5 6 7 8 / 5 - 延长 / 0 休止 / | 小节线
+             变调前缀：b 降调(左键)  # 半音(中键)  ^ 升调(右键)  #b 半+降  #^ 半+升
+          2) 鼠鼠口琴谱：1:0.5 #6:1 b3:0.5（音:拍数）','=低八度 '''=高八度
+          3) D-hydra 键位谱：含「键位 / 节奏」两列，自动识别
+
+        演奏快捷键（可在「键位与设置」里改）：
+          Alt+1 播放/暂停  Alt+2 停止  Alt+3 下一首  Alt+↑ 上一首
+          Alt+H 显示/隐藏悬浮窗  Alt+L 锁定/解锁悬浮窗  Alt+Z 自动/跟练切换
+          Alt+4~9 快捷曲 1~6
+        """;
+}

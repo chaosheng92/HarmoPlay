@@ -1,0 +1,21 @@
+<Window x:Class="HarmoPlay.Views.InputWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Height="190" Width="420"
+        Background="{StaticResource Bg}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="TxtTitle" FontSize="13" Margin="0,0,0,8"/>
+        <TextBox x:Name="TxtValue" Grid.Row="1" FontSize="14"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <Button Content="确定" Style="{StaticResource PrimaryButton}" Click="OnOk"/>
+            <Button Content="取消" Click="OnCancel"/>
+        </StackPanel>
+    </Grid>
+</Window>

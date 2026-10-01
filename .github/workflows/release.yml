@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号（如 1.0.1，不含 v）'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 版本号
+        id: ver
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $v = '${{ github.event.inputs.version }}'
+          } else {
+            $v = '${{ github.ref_name }}'.TrimStart('v')
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "版本：$v"
+
+      - name: 发布（自包含单文件）
+        shell: pwsh
+        run: |
+          dotnet publish HarmoPlay.csproj -c Release -r win-x64 `
+            --self-contained true -p:PublishSingleFile=true -p:DebugType=none `
+            -p:Version=${{ steps.ver.outputs.version }} `
+            -o dist
+
+      - name: 组装发布包
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          $pkg = "HarmoPlay-$v-win-x64"
+          New-Item -ItemType Directory -Force -Path "package/$pkg" | Out-Null
+          Copy-Item dist/* "package/$pkg" -Recurse -Force
+          Copy-Item 使用说明.txt "package/$pkg/使用说明.txt" -Force
+          if (Test-Path "package/$pkg/HarmoPlay.exe") {
+            Rename-Item "package/$pkg/HarmoPlay.exe" "口琴谱演奏器.exe"
+          }
+          Compress-Archive -Path "package/$pkg/*" -DestinationPath "package/$pkg.zip" -Force
+          $hash = (Get-FileHash "package/$pkg.zip" -Algorithm SHA256).Hash.ToLower()
+          "sha=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "SHA256=$hash"
+
+      - name: 更新 update.json
+        id: manifest
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          $repo = '${{ github.repository }}'
+          $manifest = [ordered]@{
+            version   = $v
+            published = (Get-Date -Format 'yyyy-MM-dd')
+            notes     = "见 Release 说明"
+            download  = "https://github.com/$repo/releases/latest"
+            mandatory = $false
+            sha256    = '${{ steps.ver.outputs.sha }}'
+          }
+          $manifest | ConvertTo-Json -Depth 4 | Set-Content update.json -Encoding UTF8
+
+      - name: 创建 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.ver.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          files: package/*.zip
+          body: |
+            下载 `HarmoPlay-${{ steps.ver.outputs.version }}-win-x64.zip`，解压后直接运行 `口琴谱演奏器.exe`。
+            （自包含，无需安装 .NET；请保持 5 个原生 DLL 与 exe 在一起）
+
+            SHA256：`${{ steps.manifest.outputs.sha || steps.ver.outputs.sha }}`
+
+      - name: 提交新的 update.json
+        shell: pwsh
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          if (git diff --cached --quiet) { Write-Host "无变化" } else {
+            git commit -m "chore: 更新 update.json 到 ${{ steps.ver.outputs.version }}"
+            git push origin HEAD:${{ github.event.repository.default_branch }}
+          }

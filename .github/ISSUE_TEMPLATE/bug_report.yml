@@ -1,0 +1,68 @@
+name: Bug 反馈
+description: 报告一个问题（请先带上「导出诊断包」生成的文件）
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！提 Issue 前建议先看 [docs/问题反馈.md](../blob/main/docs/问题反馈.md) 里的自查表。
+        诊断包获取方式：软件「键位与设置 → 更新与问题反馈 → 导出诊断包」（或命令行 `HarmoPlay.exe --feedback`）。
+  - type: input
+    id: version
+    attributes:
+      label: 软件版本
+      description: 主界面右下角 / 诊断包第一行
+      placeholder: 例如 1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 悬浮窗模式
+      options:
+        - 经典堆叠
+        - 音游下落
+        - 没开悬浮窗
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: 游戏与显示模式
+      placeholder: 例如 三角洲行动 / 无边框窗口
+  - type: checkboxes
+    id: env
+    attributes:
+      label: 运行环境
+      options:
+        - label: 以管理员身份运行
+        - label: 开了跟练模式
+        - label: 使用自定义键位映射
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 选中曲谱「…」
+        2. 按 Alt+1
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果 / 实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断包内容
+      description: 把 HarmoPlay-诊断-*.txt 的内容粘贴到这里（不含曲谱内容）
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截图 / 补充
+      description: 悬浮窗截图、曲谱片段、报错弹窗等

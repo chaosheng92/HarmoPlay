@@ -1,0 +1,19 @@
+<Window x:Class="HarmoPlay.Views.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:HarmoPlay.Views"
+        Title="口琴谱悬浮窗"
+        Width="460" Height="320"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        Opacity="0.9">
+    <Border x:Name="Root" CornerRadius="10" Background="#CC10141C" BorderBrush="#33FFFFFF" BorderThickness="1">
+        <v:OverlayCanvas x:Name="Surface" Margin="8"/>
+    </Border>
+</Window>

@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "published": "2026-10-01",
+  "notes": "首个版本：曲谱库 / 简谱编辑器 / 自动演奏 / 悬浮窗（经典堆叠 + 音游下落）/ 可配置键位映射（三角洲口琴预设）/ AI 转谱校验 / 更新接口 / 诊断包",
+  "download": "https://github.com/你的用户名/HarmoPlay/releases/latest",
+  "mandatory": false,
+  "sha256": "8a6ab8ee3b5a3c1bb91043bf5300ed9d1f48dd3abeb83f6976f6a616ecc42f34"
+}

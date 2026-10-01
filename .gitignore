@@ -1,0 +1,18 @@
+# 构建产物
+bin/
+obj/
+dist/
+package/
+
+# 运行时数据（曲谱库 / 设置 / 日志）
+data/
+*.log
+
+# 临时文件
+*.user
+*.suo
+.vs/
+.idea/
+
+# 本地打包脚本生成的清单（保留仓库里的模板）
+!update.json

@@ -1,0 +1,28 @@
+<Window x:Class="HarmoPlay.Views.HotkeyCaptureWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="设置热键" Height="230" Width="420"
+        Background="{StaticResource Bg}"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        PreviewKeyDown="OnPreviewKeyDown">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="请按下新的快捷键（建议带 Ctrl 或 Alt）" FontSize="13"/>
+        <Border Grid.Row="1" Background="#FF111722" CornerRadius="8" Margin="0,12">
+            <TextBlock x:Name="TxtNow" Text="等待按键…" FontSize="22" FontWeight="Bold"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#4A9DFF"/>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <TextBlock x:Name="TxtHint" Text="Esc 取消" VerticalAlignment="Center" Foreground="#8FA0B5" Margin="0,0,12,0"/>
+            <Button x:Name="BtnOk" Content="确定" Style="{StaticResource PrimaryButton}" IsEnabled="False" Click="OnOk"/>
+            <Button Content="取消" Click="OnCancel"/>
+        </StackPanel>
+    </Grid>
+</Window>
